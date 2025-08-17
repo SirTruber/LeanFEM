@@ -10,7 +10,9 @@ grid = loadFrom('../../grid/dyn.4ekm');
 % view(45,30);
 
 mat = MaterialDB().materials('steel');
-el = HM24(mat);
+
+rare = TL12(mat);
+moment = HM24(mat);
 %
 % ind = zeros(1,size(grid.quads,1));
 % for i = 1:size(grid.quads,1)
@@ -26,11 +28,13 @@ el = HM24(mat);
 n = size(grid.nodes,1);
 m = size(grid.hexas,1);
 
-[K,M] = el.assemble(grid);
+[K1,M1] = rare.assemble(grid);
+[K2,M2] = moment.assemble(grid);
+
 attach = Boundary(grid);
 q = Force(grid);
-U_ind = find(grid.nodes(:,1) == 0.5 & grid.nodes(:,2) == 1);
-U_ind = 3 * sort(U_ind);
+% U_ind = find(grid.nodes(:,1) == 0.5 & grid.nodes(:,2) == 1);
+% U_ind = 3 * sort(U_ind);
 V_ind = 3 * find(grid.nodes(:,1) == 0.5 & grid.nodes(:,2) == 1 & (grid.nodes(:,3) == 100)) - 1;
 Kurant = 10;
 dt = Kurant * grid.minHeight(1:m) / mat.waveSpeed;

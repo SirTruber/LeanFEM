@@ -36,16 +36,15 @@ classdef Newmark < Static
 
             n = size(obj.K,1);
 
+            obj.A = zeros(n, 1);
             if isempty(V0)
                 obj.V = zeros(n, 1);
             else
                 obj.V = V0;
             end
-            if isempty(loads)
-                obj.A = zeros(n, 1);
-            else
-                obj.A = mass \ loads.'(:);
-            end
+%             if isempty(loads)
+%             else
+%                 obj.A = mass \ loads.'(:);
             obj.U_prev = zeros(n, 1);
             obj.V_prev = zeros(n, 1);
             obj.A_prev = zeros(n, 1);
