@@ -1,6 +1,5 @@
 function runtests
-    test parseNumbers;
-    test LineParser;
+    test parseLine;
     test parseDataBlock;
-    test parse4ekm;
+    test loadMesh;
 end
