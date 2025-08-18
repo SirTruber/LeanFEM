@@ -1,11 +1,51 @@
 classdef Buffer < handle
+    properties
+        type = 'int32';
+        size = 0;
+        data = int32([]);
+    end
+    methods
+        function obj = Buffer(type, data, size)
+            if ~isTypeSupported(type)
+                error('unsupported type: %s ',type);
+            end
 
+            dataSize = numel(data);
+            if nargout == 2
+                size = dataSize;
+            end
+
+            if dataSize > size
+                warning('incorrect buffer size');
+            end
+
+            typeSpec = getType.(lower(type));
+            obj.type = typeSpec.dataType;
+            obj.size = max(dataSize,size);
+            obj.data(1:dataSize) = cast(data(:),obj.type);
+        end
+    end
 end
+
+function isValid = isTypeSupported(type)
+    isValid = isfield(getType, lower(type));
+end
+
+function typeSpec = getType()
+    typeSpec = struct(...
+        'int',    struct('dataType', 'int32'), ...
+        'float',  struct('dataType', 'single'), ...
+        'double', struct('dataType', 'double'), ...
+        'char',   struct('dataType', 'char')...
+    );
+end
+
+
 
 %!test #1.Создание буфера с плавающей запятой
 %!
 %! data = [1.5 2.0 3.3 4.1];
-%! buffer = Buffer('single', data);
+%! buffer = Buffer('float', data);
 %!
 %! assert(buffer.type, 'single');
 %! assert(buffer.size, 4);
@@ -50,7 +90,7 @@ end
 %!
 %! assert(buffer.size, 3);
 %!
-%!test #5.Копия ссылки на буфер
+%!test #6.Копия ссылки на буфер
 %!
 %! source = Buffer('int',[1 2 3]);
 %! dest = source;
@@ -58,7 +98,7 @@ end
 %!
 %! assert(source.data(2), 0);
 %!
-%!test #6.Глубокая копия буфера
+%!test #7.Глубокая копия буфера
 %!
 %! source = Buffer('int',[1 2 3]);
 %! dest = copy(source);
@@ -67,7 +107,7 @@ end
 %! assert(source.data(2), 2);
 %! assert(dest.data(2), 0);
 %!
-%!test #7.Удаление буфера
+%!test #8.Удаление буфера
 %!
 %! buffer = Buffer('int',[1 2 3]);
 %! buffer.clear();
@@ -76,7 +116,9 @@ end
 %! assert(buffer.size, 0);
 %! assert(isempty(buffer.data));
 %!
-%!test #9.Некоректный размер данных
+%!    #9.Некоректный размер данных
+%!warning <incorrect buffer size> Buffer('int',[1 2 3],1);
 %!
-%!
+%!    #10.Некоректный тип данных
+%!error <unsupported type: iint> Buffer('iint');
 %!

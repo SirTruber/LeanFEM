@@ -279,6 +279,14 @@ end
 %! fclose(fileID);
 %! delete(filename);
 %!
+%!test #2.9.Неверный тип данных
+%! testData = sprintf('1 \n2\n 3');
+%! filename = setupTestData(testData);
+%!
+%! fail("parseDataBlock(fileID, 3, 1, 'iint')", "unsupported type: iint of block");
+%! fclose(fileID);
+%! delete(filename);
+%!
 %% importFromFile
 %!     #3.1 Некорректный дескриптор файла
 %!error <file not found>
