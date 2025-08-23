@@ -2,7 +2,7 @@ classdef Mesh < handle
     properties
         name    % Уникальный идентификатор (строка)
         nodes   % Координаты узлов сетки [Mx3]
-        elements% Структура, у которой название поля является типом элемента
+        hexas   % Индексы
     end
     methods (Static)
         function mesh = import(filename)
@@ -10,14 +10,15 @@ classdef Mesh < handle
             if ~is_valid_file_id(fileID)
                 error('file not found');
             end
-            mesh = Mesh;
-            [~, mesh.name, ext] = fileparts(filename);
             try
+                mesh = Mesh;
+                [~, mesh.name, ext] = fileparts(filename);
+
                 switch lower(ext)
                     case '.4ekm'
-                        [mesh.nodes, mesh.elements.hexas] = parse4ekm(fileID);
+                        [mesh.nodes, mesh.hexas] = parse4ekm(fileID);
                     case '.romanov'
-                        [mesh.nodes, mesh.elements.hexas] = parseRomanov(fileID);
+                        [mesh.nodes, mesh.hexas] = parseRomanov(fileID);
                     otherwise
                         error('Unsupported format: %s', ext);
                 end
@@ -46,25 +47,6 @@ classdef Mesh < handle
 
         function p = points(obj,ind)
             p = obj.nodes(obj.hexas(ind,:)',:);
-        end
-
-        function selected = select(obj, type, target)
-            %selected   индексы объектов типа type, удовлетворяющих target
-            %type -     выбор условия: 'nodes' - по координатам, 'quads' - по четырёхугольникам ,'hexas' - по гексаэдрам
-            %target     функция-предикат, принимает массив координат соответствующего размера
-            if ~isa(target, 'function_handle')
-                return
-            end
-            mask = [];
-            switch lower(type)
-                case 'nodes'
-                    mask = arrayfun(@(i) target(obj.nodes(i,:)), 1:size(obj.nodes,1));
-                case 'quads'
-                    mask = arrayfun(@(i) target(obj.nodes(obj.quads(i,:),:)), 1:size(obj.quads,1));
-                case 'hexas'
-                    mask = arrayfun(@(i) target(obj.nodes(obj.hexas(i,:),:)), 1:size(obj.hexas,1));
-            end
-            selected = find(mask);
         end
 
         function h = minHeight(obj,ind)
