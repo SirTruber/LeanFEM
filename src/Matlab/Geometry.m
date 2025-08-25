@@ -1,9 +1,15 @@
-classdef Mesh < handle
+classdef Geometry < handle
     properties
-        name    % Уникальный идентификатор (строка)
-        nodes   % Координаты узлов сетки [Mx3]
-        elements = containers.Map(0,0)   % Индексы
-        atributes
+        numCells
+        numFaces
+        numEdges
+        numVertices
+
+        vertices
+        edges
+        quads
+
+        mesh
     end
     methods (Static)
         function mesh = import(filename)
@@ -30,8 +36,67 @@ classdef Mesh < handle
             fclose(fileID);
         end
     end
-
     methods
+        function obj = Geometry(nodes, hexas)
+        end
+
+        function generateEdges(obj)
+        end
+
+        function generateQuads(obj)
+        end
+
+        function geom3 = union(geom1, geom2)
+        end
+
+        function geom3 = substruct(geom1, geom2)
+        end
+
+        function geom3 = intersect(geom1,geom2)
+        end
+
+        function faceID = cellFaces(geom, elemID)
+        end
+
+        function edgeID = cellEdges(geom, elemID)
+        end
+
+        function nodesID = cellNodes(geom, elemID)
+        end
+
+        function cellID = faceCells(geom, elemID)
+        end
+
+        function edgeID = faceEdges(geom, elemID)
+        end
+
+        function nodesID = faceNodes(geom, elemID)
+        end
+
+        function faceID = edgeFaces(geom, elemID)
+        end
+
+        function cellID = edgeCells(geom, elemID)
+        end
+
+        function nodesID = edgeNodes(geom, elemID)
+        end
+
+        function h = plot(obj)
+        end
+
+        function h = mesh(obj)
+        end
+
+        function rotate(obj, angle, refpoint1, refpoint2)
+        end
+
+        function scale(obj, scaleFactor, refpoint)
+        end
+
+        function translate(obj, distance)
+        end
+
         function export(obj, filename, ext)
             fileID = fopen(filename,"w");
             if ~is_valid_file_id(fileID)
@@ -44,22 +109,6 @@ classdef Mesh < handle
                     writeRomanov(fileID, obj);
             end
             fclose(fileID);
-        end
-
-        function p = points(obj,ind)
-            p = obj.nodes(obj.hexas(ind,:)',:);
-        end
-
-        function h = minHeight(obj,ind)
-            nodes = obj.points(ind);
-            n = length(ind);
-            edges = [1 2; 2 3; 3 4; 4 1; 5 6; 6 7; 7 8; 8 5; 1 5; 2 6; 3 7; 4 8];
-            if n ~= 1
-                edges = repmat(edges,n,1) + repmat(repelem(8 * (0:(n-1))',rows(edges)),1,columns(edges));
-            end
-            edges = nodes(edges(:,2),:) - nodes(edges(:,1),:);
-            len = sqrt(sum(edges.^2,2));
-            h = min(nonzeros(len));
         end
     end
 end
@@ -144,18 +193,6 @@ function writeRomanov(fileID, data)
         fprintf(fileID, hexasSpec,[i, data.hexas(i,:)]);
     end
 end
-%
-%         function v = volume(obj,ind)
-%             nodes = obj.points(ind);
-%             n = length(ind);
-%             tetraedron = [1 3 6 8; 1 2 6 3; 1 3 8 4; 1 6 5 8; 3 6 8 7];
-%             if n ~= 1
-%                 tetraedron = repmat(tetraedron,n,1) + repmat(repelem(8 * (0:(n-1))',rows(tetraedron)),1,columns(tetraedron));
-%             end
-%             determinant = arrayfun(@(i) det([nodes(tetraedron(i,:),:) ones(4,1)]), 1:rows(tetraedron));
-%             v = 1/6 * sum(determinant);
-%         end
-
 
 %!function filename = setupTestData(testData, format)
 %! filename = [tempname(), format];
@@ -164,7 +201,7 @@ end
 %! fclose(fileID);
 %!endfunction
 %%
-%% Mesh.import
+%% Geometry.import
 %!     #1 Некорректный дескриптор файла
 %!error <file not found>
 %! Mesh.import('not_found.txt');
@@ -261,4 +298,42 @@ end
 %! fail("Mesh.import(filename)","unexpected EOF on line 2 of block hexas");
 %!
 %! delete(filename);
+%!
+%!test создание геометрии с корректными nodes и hexas
+%!
+%!test создание геометрии с пустыми массивами
+%!
+%!test генерация граней для одного куба
+%!
+%!test генерация граней для восьми кубов
+%!
+%!test повторный вызов генерации граней
+%!
+%!test объединение двух геометрий
+%!
+%!test вычитание двух геометрий
+%!
+%!test пересечение двух геометрий
+%!
+%!test грани ячейки
+%!
+%!test ребра ячейки
+%!
+%!test узлы ячейки
+%!
+%!test ребра граней
+%!
+%!test узлы граней
+%!
+%!test узлы ребер
+%!
+%!test вращение вокруг оси OZ
+%!
+%!test вращение вокруг произвольной оси
+%!
+%!test масштабирование геометрии
+%!
+%!test перенос геометрии
+%!
+%!test набор последовательных преобразований
 %!
