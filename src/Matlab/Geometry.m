@@ -7,43 +7,68 @@ classdef Geometry < handle
 
         vertices
         edges
-        quads
+        faces
 
         mesh
     end
-    methods (Static)
-        function mesh = import(filename)
-            fileID = fopen(filename,"r");
-            if ~is_valid_file_id(fileID)
-                error('file not found');
-            end
-            try
-                mesh = Mesh;
-                [~, mesh.name, ext] = fileparts(filename);
-
-                switch lower(ext)
-                    case '.4ekm'
-                        [mesh.nodes, mesh.hexas] = parse4ekm(fileID);
-                    case '.romanov'
-                        [mesh.nodes, mesh.hexas] = parseRomanov(fileID);
-                    otherwise
-                        error('Unsupported format: %s', ext);
-                end
-            catch err
-                fclose(fileID);
-                rethrow(err);
-            end
-            fclose(fileID);
-        end
-    end
     methods
-        function obj = Geometry(nodes, hexas)
-        end
+        function obj = Geometry(mesh)
+            obj.numCells = size(mesh.hexas,2);
+            obj.numVertices = size(mesh.nodes,2);
 
-        function generateEdges(obj)
+            obj.vertices = mesh.nodes';
+            obj.mesh = mesh;
+
+            obj.generateQuads;
+            obj.generateEdges;
         end
 
         function generateQuads(obj)
+            a = int32( ...
+           [1 2 3 4;...  % Грань 1 (нижняя)
+            5 8 7 6;...  % Грань 2 (верхняя)
+            1 5 6 2;...  % Грань 3 (передняя)
+            4 3 7 8;...  % Грань 4 (задняя)
+            2 6 7 3;...  % Грань 5 (правая)
+            1 4 8 5]);    % Грань 6 (левая)
+
+            quads = reshape(obj.mesh.hexas(a',:),4,[]); %Собираем все грани гексаэдров
+
+            [~,ida,idx] = unique(sort(quads)',"rows","stable"); %Оставляем только уникальные
+            count = accumarray(idx,1);
+
+            obj.faces = quads(:,ida(count == 1)); % И которые встречаются только один раз
+            obj.numFaces = size(obj.faces,2);
+        end
+
+        function generateEdges(obj)
+            a = int32(...
+           [1 2;...  % Ребро 1 (нижнее)
+            2 3;...  % Ребро 2 (правое)
+            3 4;...  % Ребро 3 (верхнее)
+            4 1]);    % Ребро 4 (левое)
+
+            edges = reshape(obj.faces(a',:),4,[]); %Собираем все ребра граней
+
+            [~,ida,idx] = unique(sort(edges)',"rows","stable"); %Оставляем только уникальные
+            count = accumarray(idx,1);
+
+            obj.edges = edges(:,ida(count == 1)); % И которые встречаются только один раз
+            obj.numEdges = size(obj.edges,2);
+        end
+
+        function export(obj, filename, ext)
+            fileID = fopen(filename,"w");
+            if ~is_valid_file_id(fileID)
+                error('file not found');
+            end
+            switch lower(ext)
+                case '.4ekm'
+                    write4ekm(fileID, obj);
+                case '.romanov'
+                    writeRomanov(fileID, obj);
+            end
+            fclose(fileID);
         end
 
         function geom3 = union(geom1, geom2)
@@ -82,12 +107,6 @@ classdef Geometry < handle
         function nodesID = edgeNodes(geom, elemID)
         end
 
-        function h = plot(obj)
-        end
-
-        function h = mesh(obj)
-        end
-
         function rotate(obj, angle, refpoint1, refpoint2)
         end
 
@@ -97,243 +116,90 @@ classdef Geometry < handle
         function translate(obj, distance)
         end
 
-        function export(obj, filename, ext)
-            fileID = fopen(filename,"w");
-            if ~is_valid_file_id(fileID)
-                error('file not found');
-            end
-            switch lower(ext)
-                case '.4ekm'
-                    write4ekm(fileID, obj);
-                case '.romanov'
-                    writeRomanov(fileID, obj);
-            end
-            fclose(fileID);
+        function h = plot(obj, varargin)
         end
+
+        function h = plotMesh(obj, varargin)
+        end
+
     end
 end
-
-function [nodes, hexas] = parse4ekm(fileID)
-    headerSize = [2;1];
-    nodesDim = 3;
-    elementDim = 8;
-    try
-        header = parseDataBlock(fileID, headerSize(1), headerSize(2),'int');
-        numberOfNodes = header(1);
-        numberOfHexas = header(2);
-    catch err
-        error('%s header', err.message);
-    end
-    try
-        nodes = parseDataBlock(fileID, numberOfNodes, nodesDim, 'double');
-    catch err
-        error('%s nodes', err.message);
-    end
-    try
-        hexas = parseDataBlock(fileID, numberOfHexas, elementDim, 'int'); % Нет проверки, все ли узлы существуют, ответственность билдера
-    catch err
-        error('%s hexas', err.message);
-    end
-end
-
-function write4ekm(fileID, data)
-    numberOfNodes = rows(data.nodes);
-    numberOfHexas = rows(data.hexas);
-
-    fprintf(fileID,'%d\n',nodes_size);
-    fprintf(fileID,'%d\n',hexas_size);
-
-    nodesSpec = '%11f%11f%11f\n';
-    hexasSpec = '%7d%7d%7d%7d%7d%7d%7d%7d\n';
-    for i = 1:nodes_size
-        fprintf(fileID, nodesSpec, data.nodes(i,:));
-    end
-    for i = 1:hexas_size
-        fprintf(fileID, hexasSpec, data.hexas(i,:));
-    end
-end
-
-function [nodes, hexas] = parseRomanov(fileID)
-    headerSize = [2;1];
-    nodesDim = 3;
-    elementDim = 8;
-
-    try
-        header = parseDataBlock(fileID, headerSize(1), headerSize(2),'int');
-        numberOfNodes = header(1);
-        numberOfHexas = header(2);
-    catch err
-        error('%s header', err.message);
-    end
-    try
-        nodes = parseDataBlock(fileID, numberOfNodes, 1 + nodesDim, 'double')(:,2:end);
-    catch err
-        error('%s nodes', err.message);
-    end
-    try
-        hexas = parseDataBlock(fileID, numberOfHexas, 1 + elementDim, 'int')(:,2:end); % Нет проверки, все ли узлы существуют, ответственность билдера
-    catch err
-        error('%s hexas', err.message);
-    end
-end
-
-function writeRomanov(fileID, data)
-    numberOfNodes = rows(data.nodes);
-    numberOfHexas = rows(data.hexas);
-
-    fprintf(fileID,'%d\n',nodes_size);
-    fprintf(fileID,'%d\n',hexas_size);
-
-    nodesSpec = '%d%11f%11f%11f\n';
-    hexasSpec = '%d%7d%7d%7d%7d%7d%7d%7d%7d\n';
-    for i = 1:nodes_size
-        fprintf(fileID, nodesSpec,[i, data.nodes(i,:)]);
-    end
-    for i = 1:hexas_size
-        fprintf(fileID, hexasSpec,[i, data.hexas(i,:)]);
-    end
-end
-
-%!function filename = setupTestData(testData, format)
-%! filename = [tempname(), format];
-%! fileID = fopen(filename, 'w');
-%! fprintf(fileID, testData);
-%! fclose(fileID);
+%!function mesh = testCube
+%! [x,y,z] = meshgrid(0:1,0:1,0:1);
+%! mesh = Mesh([x(:),y(:),z(:)]',int32([1;2;3;4;5;6;7;8]));
 %!endfunction
-%%
-%% Geometry.import
-%!     #1 Некорректный дескриптор файла
-%!error <file not found>
-%! Mesh.import('not_found.txt');
-%%
-%!test #2 Неизвестный формат файла
-%! filename = setupTestData('test','.not_supported');
+%!test #создание геометрии с корректным Mesh
 %!
-%! fail("Mesh.import(filename)","Unsupported format: .not_supported");
+%! grid = Geometry(testCube());
 %!
-%! delete(filename);
+%! assert(grid.numCells, 1);
+%! assert(grid.numFaces, 6);
+%! assert(grid.numEdges, 12);
+%! assert(grid.numVertices, 8);
 %!
-%% Тесты 4ekm
-%!test #3.Корректная загрузка файла
+%! assert(isa(grid.vertices, 'double'));
+%! assert(isa(grid.edges, 'int32'));
+%! assert(isa(grid.faces, 'int32'));
+%! assert(isa(grid.mesh, 'Mesh'));
 %!
-%! testData = sprintf('8 \n1 \n0.000000   0.000000   0.000000\n0.250000   0.000000   0.000000 \n0.500000   0.000000   0.000000\n0.750000   0.000000   0.000000\n1.000000   0.000000   0.000000\n0.000000   0.250000   0.000000\n   0.250000   0.250000   0.000000\n0.500000   0.250000   0.000000\n 1      2      3      4     5     6     7    8 ');
-%! filename = setupTestData(testData,'.4ekm');
+%!test #создание геометрии с пустым Mesh
 %!
-%! grid = Mesh.import(filename);
+%! grid = Geometry(Mesh);
 %!
-%! delete(filename);
+%! assert(grid.numCells, 0);
+%! assert(grid.numFaces, 0);
+%! assert(grid.numEdges, 0);
+%! assert(grid.numVertices, 0);
 %!
-%! assert(isa(grid.nodes, 'double'));
-%! assert(size(grid.nodes), [8, 3]);
-%! assert(grid.nodes, [0 0 0; 0.25 0 0; 0.5 0 0; 0.75 0 0; 1 0 0; 0 0.25 0; 0.25 0.25 0; 0.5 0.25 0]);
+%! assert(isa(grid.vertices, 'double'));
+%! assert(isa(grid.edges, 'int32'));
+%! assert(isa(grid.faces, 'int32'));
+%! assert(isa(grid.mesh, 'Mesh'));
 %!
-%! assert(isa(grid.elements.hexas, 'int32'));
-%! assert(size(grid.elements.hexas), [1, 8]);
-%! assert(grid.elements.hexas, int32([1 2 3 4 5 6 7 8]));
+%!test #генерация граней для одного куба
 %!
-%!test #4.Пустой файл
-%! filename = setupTestData('', '.4ekm');
+%! grid = Geometry(testCube());
 %!
-%! fail("Mesh.import(filename)","unexpected EOF on line 1 of block header");
+%! assert(grid.faces, int32([1 2 3 4; 5 8 7 6; 1 5 6 2; 4 3 7 8; 2 6 7 3; 1 4 8 5]'));
 %!
-%! delete(filename);
+%!test #генерация граней для восьми кубов
 %!
-%!test #5.Неполные данные узлов
+%! [x,y,z] = meshgrid(-1:1,-1:1,-1:1);
+%! mesh = Mesh([x(:),y(:),z(:)]',int32([1 2 4 5 10 11 13 14; 4 5 7 8 13 14 16 17; 5 6 8 9 14 15 17 18; 2 3 5 6 11 12 14 15; 10 11 13 14 19 20 22 23; 13 14 16 17 22 23 25 26; 14 15 17 18 23 24 26 27; 11 12 14 15 20 21 23 24]));
+%! grid = Geometry(mesh);
 %!
-%! testData = sprintf('8 \n1 \n0.000000   0.000000 \n0.250000   0.000000   \n0.500000   0.000000 \n0.750000   0.000000 \n1.000000   0.000000   \n0.000000   0.250000 \n   0.250000   0.250000 \n0.500000   0.250000\n 1      2      3      4     5     6     7     8');
-%! filename = setupTestData(testData,'.4ekm');
+%! assert(grid.numFaces, 24);
+%!endfunction
 %!
-%! fail("Mesh.import(filename)","expected 3 numbers, but 2 is read on line 1 of block nodes");
+%!test #генерация ребер для одного куба
 %!
-%! delete(filename);
+%!test #генерация ребер для восьми кубов
 %!
-%!test #6.Неполные данные элементов
+%!test #объединение двух геометрий
 %!
-%! testData = sprintf('8 \n2 \n0.000000   0.000000   0.000000\n0.250000   0.000000   0.000000 \n0.500000   0.000000   0.000000\n0.750000   0.000000   0.000000\n1.000000   0.000000   0.000000\n0.000000   0.250000   0.000000\n   0.250000   0.250000   0.000000\n0.500000   0.250000   0.000000\n 1      2      3      4     5     6     7     8');
-%! filename = setupTestData(testData, '.4ekm');
+%!test #вычитание двух геометрий
 %!
-%! fail("Mesh.import(filename)","unexpected EOF on line 2 of block hexas");
+%!test #пересечение двух геометрий
 %!
-%! delete(filename);
+%!test #грани ячейки
 %!
-%% Тесты romanov
-%!test #7.Корректная загрузка файла
+%!test #ребра ячейки
 %!
-%! testData = sprintf('8 \n1 \n1 0.000000   0.000000   0.000000\n2 0.250000   0.000000   0.000000 \n3 0.500000   0.000000   0.000000\n4 0.750000   0.000000   0.000000\n5 1.000000   0.000000   0.000000\n6 0.000000   0.250000   0.000000\n7  0.250000   0.250000   0.000000\n8 0.500000   0.250000   0.000000\n1  1      2      3      4     5     6     7    8 ');
-%! filename = setupTestData(testData,'.romanov');
+%!test #узлы ячейки
 %!
-%! grid = Mesh.import(filename);
+%!test #ребра граней
 %!
-%! delete(filename);
+%!test #узлы граней
 %!
-%! assert(isa(grid.nodes, 'double'));
-%! assert(size(grid.nodes), [8, 3]);
-%! assert(grid.nodes, [0 0 0; 0.25 0 0; 0.5 0 0; 0.75 0 0; 1 0 0; 0 0.25 0; 0.25 0.25 0; 0.5 0.25 0]);
+%!test #узлы ребер
 %!
-%! assert(isa(grid.elements.hexas, 'int32'));
-%! assert(size(grid.elements.hexas), [1, 8]);
-%! assert(grid.elements.hexas, int32([1 2 3 4 5 6 7 8]));
-%%
-%!test #8.Пустой файл
-%! filename = setupTestData('', '.romanov');
+%!test #вращение вокруг оси OZ
 %!
-%! fail("Mesh.import(filename)","unexpected EOF on line 1 of block header");
+%!test #вращение вокруг произвольной оси
 %!
-%! delete(filename);
+%!test #масштабирование геометрии
 %!
-%!test #9.Неполные данные узлов
+%!test #перенос геометрии
 %!
-%! testData = sprintf('8 \n1 \n1 0.000000   0.000000 \n2 0.250000   0.000000   \n3 0.500000   0.000000 \n4 0.750000   0.000000 \n5 1.000000   0.000000   \n6 0.000000   0.250000 \n7   0.250000   0.250000 \n8 0.500000   0.250000\n1 1      2      3      4     5     6     7     8');
-%! filename = setupTestData(testData,'.romanov');
-%!
-%! fail("Mesh.import(filename)","expected 4 numbers, but 3 is read on line 1 of block nodes");
-%!
-%! delete(filename);
-%!
-%!test #10.Неполные данные элементов
-%!
-%! testData = sprintf('8 \n2 \n1 0.000000   0.000000   0.000000\n2 0.250000   0.000000   0.000000 \n3 0.500000   0.000000   0.000000\n4 0.750000   0.000000   0.000000\n5 1.000000   0.000000   0.000000\n6 0.000000   0.250000   0.000000\n7    0.250000   0.250000   0.000000\n8 0.500000   0.250000   0.000000\n 1 1      2      3      4     5     6     7     8');
-%! filename = setupTestData(testData, '.romanov');
-%!
-%! fail("Mesh.import(filename)","unexpected EOF on line 2 of block hexas");
-%!
-%! delete(filename);
-%!
-%!test создание геометрии с корректными nodes и hexas
-%!
-%!test создание геометрии с пустыми массивами
-%!
-%!test генерация граней для одного куба
-%!
-%!test генерация граней для восьми кубов
-%!
-%!test повторный вызов генерации граней
-%!
-%!test объединение двух геометрий
-%!
-%!test вычитание двух геометрий
-%!
-%!test пересечение двух геометрий
-%!
-%!test грани ячейки
-%!
-%!test ребра ячейки
-%!
-%!test узлы ячейки
-%!
-%!test ребра граней
-%!
-%!test узлы граней
-%!
-%!test узлы ребер
-%!
-%!test вращение вокруг оси OZ
-%!
-%!test вращение вокруг произвольной оси
-%!
-%!test масштабирование геометрии
-%!
-%!test перенос геометрии
-%!
-%!test набор последовательных преобразований
+%!test #набор последовательных преобразований
 %!
