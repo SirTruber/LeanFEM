@@ -13,48 +13,16 @@ classdef Geometry < handle
     end
     methods
         function obj = Geometry(mesh)
-            obj.numCells = size(mesh.hexas,2);
-            obj.numVertices = size(mesh.nodes,2);
-
-            obj.vertices = mesh.nodes';
             obj.mesh = mesh;
 
-            obj.generateQuads;
-            obj.generateEdges;
-        end
+            obj.vertices = mesh.nodes';
+            obj.faces = generateQuads(mesh.hexas); % плейсхолдер, добавить сглаживатель и сшиватель сетки
+            obj.edges = generateEdges(obj.faces);
 
-        function generateQuads(obj)
-            a = int32( ...
-           [1 2 3 4;...  % Грань 1 (нижняя)
-            5 8 7 6;...  % Грань 2 (верхняя)
-            1 5 6 2;...  % Грань 3 (передняя)
-            4 3 7 8;...  % Грань 4 (задняя)
-            2 6 7 3;...  % Грань 5 (правая)
-            1 4 8 5]);    % Грань 6 (левая)
-
-            quads = reshape(obj.mesh.hexas(a',:),4,[]); %Собираем все грани гексаэдров
-
-            [~,ida,idx] = unique(sort(quads)',"rows","stable"); %Оставляем только уникальные
-            count = accumarray(idx,1);
-
-            obj.faces = quads(:,ida(count == 1)); % И которые встречаются только один раз
+            obj.numCells = size(mesh.hexas,2);
             obj.numFaces = size(obj.faces,2);
-        end
-
-        function generateEdges(obj)
-            a = int32(...
-           [1 2;...  % Ребро 1 (нижнее)
-            2 3;...  % Ребро 2 (правое)
-            3 4;...  % Ребро 3 (верхнее)
-            4 1]);    % Ребро 4 (левое)
-
-            edges = reshape(obj.faces(a',:),4,[]); %Собираем все ребра граней
-
-            [~,ida,idx] = unique(sort(edges)',"rows","stable"); %Оставляем только уникальные
-            count = accumarray(idx,1);
-
-            obj.edges = edges(:,ida(count == 1)); % И которые встречаются только один раз
             obj.numEdges = size(obj.edges,2);
+            obj.numVertices = size(mesh.nodes,2);
         end
 
         function export(obj, filename, ext)
@@ -120,10 +88,52 @@ classdef Geometry < handle
         end
 
         function h = plotMesh(obj, varargin)
-        end
+            figHandle = figure('Units', 'pixels', 'Position', [100, 100, 1200, 800]);
 
+            faces = generateQuads(obj.mesh.hexas);
+            h = patch('Faces', faces', 'Vertices', obj.mesh.nodes', 'FaceColor', 'c', 'EdgeColor', 'k');
+            axis equal;
+
+%             center = sum(obj.vertices,2)/size(obj.vertices,2);
+%             elemText = [repelem('E',obj.numVertices,1),num2str((1:obj.numVertices)')];
+%             for i = 1:obj.numVertices
+%                 text(obj.vertices(i,1),obj.vertices(i,2),obj.vertices(i,3),sprintf('E%d',i));
+%             end
+        end
     end
 end
+
+function quads = generateQuads(hexas)
+            a = int32( ...
+           [1 2 3 4;...  % Грань 1 (нижняя)
+            5 8 7 6;...  % Грань 2 (верхняя)
+            1 5 6 2;...  % Грань 3 (передняя)
+            4 3 7 8;...  % Грань 4 (задняя)
+            2 6 7 3;...  % Грань 5 (правая)
+            1 4 8 5]);    % Грань 6 (левая)
+
+            quads = reshape(hexas(a',:),4,[]); %Собираем все грани гексаэдров
+
+            [~,ida,idx] = unique(sort(quads)',"rows","stable"); %Оставляем только уникальные
+            count = accumarray(idx,1);
+
+            quads = quads(:,ida(count == 1)); % И которые встречаются только один раз
+        end
+
+        function edges = generateEdges(faces)
+            a = int32(...
+           [1 2;...  % Ребро 1 (нижнее)
+            2 3;...  % Ребро 2 (правое)
+            3 4;...  % Ребро 3 (верхнее)
+            4 1]);    % Ребро 4 (левое)
+
+            edges = reshape(faces(a',:),2,[]); %Собираем все ребра граней
+
+            [~,ida,idx] = unique(sort(edges)',"rows","stable"); %Оставляем только уникальные
+            count = accumarray(idx,1);
+
+            edges = edges(:,ida(count == 1)); % И которые встречаются только один раз
+        end
 %!function mesh = testCube
 %! [x,y,z] = meshgrid(0:1,0:1,0:1);
 %! mesh = Mesh([x(:),y(:),z(:)]',int32([1;2;3;4;5;6;7;8]));

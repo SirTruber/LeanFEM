@@ -7,24 +7,24 @@ function data = parseDataBlock(fileID, rows, columns, type)
     for i = 1:rows
         line = fgetl(fileID);
         if ~ischar(line)
-            error('unexpected EOF on line %d of block',i);
+            error('unexpected EOF on line %d',i);
         end
         try
             data(i,:) = parseLine(line, columns, spec);
         catch err
-            error('%s on line %d of block', err.message, i);
+            error('%s on line %d', err.message, i);
         end
     end
 end
 
 function validateParseAttribute(fileID, rows, columns, type)
     if ~is_valid_file_id(fileID)
-        error('invalid file descriptor of block');
+        error('invalid file descriptor');
     end
     validateattributes(rows, {'numeric'}, {'scalar', 'integer', 'positive'});
     validateattributes(columns, {'numeric'}, {'scalar', 'integer', 'positive'});
     if ~isTypeSupported(type)
-        error('unsupported type: %s of block',type);
+        error('unsupported type: %s',type);
     end
 end
 
@@ -105,13 +105,13 @@ end
 %! assert(size(data2), [3, 1]);
 %! assert(data2, [1.0; 2.0; 3.0]);
 %!     #5.Некоректный файловый дескриптор
-%!error <invalid file descriptor of block> parseDataBlock(-1, 2, 2, 'int');
+%!error <invalid file descriptor> parseDataBlock(-1, 2, 2, 'int');
 %!
 %!test #6.EOF в одном блоке
 %! filename = setupTestData('');
 %!
 %! fileID = fopen(filename, 'r');
-%! fail("parseDataBlock(fileID, 3, 1, 'int')","unexpected EOF on line 1 of block");
+%! fail("parseDataBlock(fileID, 3, 1, 'int')","unexpected EOF on line 1");
 %! fclose(fileID);
 %! delete(filename);
 %!
@@ -120,7 +120,7 @@ end
 %!
 %! fileID = fopen(filename, 'r');
 %! parseDataBlock(fileID, 1, 1, 'int');
-%! fail("parseDataBlock(fileID, 3, 1, 'int')","unexpected EOF on line 1 of block");
+%! fail("parseDataBlock(fileID, 3, 1, 'int')","unexpected EOF on line 1");
 %! fclose(fileID);
 %! delete(filename);
 %!
@@ -129,7 +129,7 @@ end
 %! filename = setupTestData(testData);
 %!
 %! fileID = fopen(filename, 'r');
-%! fail("parseDataBlock(fileID, 3, 1, 'int')","invalid symbol: a on line 2 of block");
+%! fail("parseDataBlock(fileID, 3, 1, 'int')","invalid symbol: a on line 2");
 %! fclose(fileID);
 %! delete(filename);
 %!
@@ -138,7 +138,7 @@ end
 %! filename = setupTestData(testData);
 %!
 %! fileID = fopen(filename);
-%! fail("parseDataBlock(fileID, 3, 1, 'iint')", "unsupported type: iint of block");
+%! fail("parseDataBlock(fileID, 3, 1, 'iint')", "unsupported type: iint of");
 %! fclose(fileID);
 %! delete(filename);
 %!

@@ -6,7 +6,7 @@ function values = parseLine(line, length, spec)
     end
 
     if num ~= length
-        error('expected %d numbers, but %d is read', length, num);
+        error('expected %d numbers, but %d was read', length, num);
     end
 end
 
