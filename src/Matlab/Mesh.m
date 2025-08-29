@@ -54,6 +54,49 @@ classdef Mesh < handle
 
         function validate(mesh)
         end
+
+        function [V,VE] = volume(mesh, elemID)
+            if nargin == 1
+                elemID = 1:size(mesh.hexas,2);
+            end
+            nodes = mesh.points(elemID);
+            n = numel(elemID);
+            tetraedron = [1 3 6 8; 1 2 6 3; 1 3 8 4; 1 6 5 8; 3 6 8 7];
+            if n ~= 1
+                tetraedron = repmat(tetraedron,n,1) + repmat(repelem(8*(0:(n-1))', rows(tetraedron)), 1, columns(tetraedron));
+            end
+            determinant = arrayfun(@(i) det([nodes(:,tetraedron(i,:)); ones(1,4)]), 1:rows(tetraedron));
+            VE = 1/6 * sum(reshape(determinant,5,[]));
+            V = sum(VE);
+        end
+
+        function [quads,quadToHexas] = generateQuads(mesh)
+            a = int32( ...
+           [1 2 3 4;...  % Грань 1 (нижняя)
+            5 8 7 6;...  % Грань 2 (верхняя)
+            1 5 6 2;...  % Грань 3 (передняя)
+            4 3 7 8;...  % Грань 4 (задняя)
+            2 6 7 3;...  % Грань 5 (правая)
+            1 4 8 5]);    % Грань 6 (левая)
+
+            quads = reshape(mesh.hexas(a',:),4,[]); %Собираем все грани гексаэдров
+
+            [~,ida,idx] = unique(sort(quads)',"rows","stable"); %Оставляем только уникальные
+            count = accumarray(idx,1);
+
+            quadToHexas = repelem(1:size(mesh.hexas,2),6);
+            quads = quads(:,ida(count == 1)); % И которые встречаются только один раз
+            quadToHexas = quadToHexas(ida(count == 1));
+        end
+
+        function [left,right] = box(mesh)
+            left = min(mesh.nodes,[],2);
+            right = max(mesh.nodes,[],2);
+        end
+
+        function p = center(mesh)
+            p = mean(mesh.nodes,2);
+        end
     end
 end
 

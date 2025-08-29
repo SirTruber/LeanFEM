@@ -41,6 +41,7 @@ classdef Model < handle
                 [varargout{1:nargout}] = builtin('subsref', obj, S);
             end
         end
+
         function varargout = subsassign(obj, S)
             if numel(S) >= 1 && strcmp(S(1).type, '()') && strcmp(S(1).subs{1}, 'FaceLoad')
                 % Обработка model.FaceLoad(FaceID)

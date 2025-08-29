@@ -16,8 +16,8 @@ classdef Geometry < handle
             obj.mesh = mesh;
 
             obj.vertices = mesh.nodes';
-            obj.faces = generateQuads(mesh.hexas); % плейсхолдер, добавить сглаживатель и сшиватель сетки
-            obj.edges = generateEdges(obj.faces);
+%             obj.faces = generateQuads(mesh.hexas); % плейсхолдер, добавить сглаживатель и сшиватель сетки
+%             obj.edges = generateEdges(obj. faces);
 
             obj.numCells = size(mesh.hexas,2);
             obj.numFaces = size(obj.faces,2);
@@ -86,24 +86,10 @@ classdef Geometry < handle
 
         function h = plot(obj, varargin)
         end
-
-        function h = plotMesh(obj, varargin)
-            figHandle = figure('Units', 'pixels', 'Position', [100, 100, 1200, 800]);
-
-            faces = generateQuads(obj.mesh.hexas);
-            h = patch('Faces', faces', 'Vertices', obj.mesh.nodes', 'FaceColor', 'c', 'EdgeColor', 'k');
-            axis equal;
-
-%             center = sum(obj.vertices,2)/size(obj.vertices,2);
-%             elemText = [repelem('E',obj.numVertices,1),num2str((1:obj.numVertices)')];
-%             for i = 1:obj.numVertices
-%                 text(obj.vertices(i,1),obj.vertices(i,2),obj.vertices(i,3),sprintf('E%d',i));
-%             end
-        end
     end
 end
 
-function quads = generateQuads(hexas)
+function [quads,quadToHexas] = generateQuads(hexas)
             a = int32( ...
            [1 2 3 4;...  % Грань 1 (нижняя)
             5 8 7 6;...  % Грань 2 (верхняя)
@@ -117,7 +103,9 @@ function quads = generateQuads(hexas)
             [~,ida,idx] = unique(sort(quads)',"rows","stable"); %Оставляем только уникальные
             count = accumarray(idx,1);
 
+            quadToHexas = repelem(1:size(hexas,2),6);
             quads = quads(:,ida(count == 1)); % И которые встречаются только один раз
+            quadToHexas = quadToHexas(ida(count == 1));
         end
 
         function edges = generateEdges(faces)
