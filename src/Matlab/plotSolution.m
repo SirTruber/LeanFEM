@@ -1,17 +1,22 @@
-function h = plotMesh(varargin)
-    p =  inputParser;
+function h = plotSolution(varargin)
+    p = inputParser;
 
-    p.addRequired('mesh', @(x) validateattributes(x, {'Mesh'}, {}));
+    p.addRequired('Res', @(x) validateattributes(x, {'StaticResult'}, {}));
+    addParameter(p, 'ColorMapData', [], @(x) validateattributes(x, {'numeric'}, {'column'}));
+%     addParameter(p, 'FlowData', [], @(x) validateattributes(x, {'numeric'}, {'2d', 'ncols', 3}));
+    addParameter(p, 'Scale', 1.1, @(x) validateattributes(x, {'numeric'}, {'scalar'}));
     p.addSwitch('NodeLabels');
     p.addSwitch('ElementLabels');
     p.addParameter('NodeLabelColor', 'k', @(x) ischar(x) || isstring(x) || (isnumeric(x) && numel(x)==3));
     p.addParameter('ElementLabelColor', 'r', @(x) ischar(x) || isstring(x) || (isnumeric(x) && numel(x)==3));
     p.addParameter('FontSize', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
 
-    p.parse(varargin{:});
+    parse(p, varargin{:});
+
     params = p.Results;
 
-    mesh = params.mesh;
+%     h = plotMesh(results.Res.mesh);
+    mesh = params.Res.mesh;
     figHandle = figure('Units', 'pixels', 'Position', [150, 150, 1600, 1200]);
 
     faces = mesh.generateQuads();
@@ -33,6 +38,15 @@ function h = plotMesh(varargin)
     if params.ElementLabels
         drawElements(mesh,h,params,scale);
     end
+
+    if ~isempty(params.ColorMapData)
+        colormap turbo;
+        colorbar;
+        set(h,'facecolor','interp');
+        set(h, 'facevertexcdata', params.ColorMapData);
+    end
+    displacement = params.Res.displacement;
+    set(h, 'vertices',mesh.nodes' + params.Scale * [displacement.ux,displacement.uy,displacement.uz]);
 end
 
 function drawNodes(mesh,patchHandle,params,scale)
