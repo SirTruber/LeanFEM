@@ -1,13 +1,17 @@
 function h = plotSolution(varargin)
     p = inputParser;
 
-    p.addRequired('Res', @(x) validateattributes(x, {'StaticResult'}, {}));
-    addParameter(p, 'ColorMapData', [], @(x) validateattributes(x, {'numeric'}, {'column'}));
+    p.addRequired('Mesh', @(x) validateattributes(x, {'Mesh'}, {}));
+    p.addOptional('ColorMapData', [], @(x) validateattributes(x, {'numeric'}, {'column'}));
+    p.addOptional('Displacement', [], @(x) validateattributes(x, {'struct'}, {}));
 %     addParameter(p, 'FlowData', [], @(x) validateattributes(x, {'numeric'}, {'2d', 'ncols', 3}));
-    addParameter(p, 'Scale', 1.1, @(x) validateattributes(x, {'numeric'}, {'scalar'}));
+    addParameter(p, 'Scale', [], @(x) validateattributes(x, {'numeric'}, {'scalar'}));
+
     p.addSwitch('NodeLabels');
+    p.addSwitch('FaceLabels');
     p.addSwitch('ElementLabels');
     p.addParameter('NodeLabelColor', 'k', @(x) ischar(x) || isstring(x) || (isnumeric(x) && numel(x)==3));
+    p.addParameter('FacesLabelColor', 'b', @(x) ischar(x) || isstring(x) || (isnumeric(x) && numel(x)==3));
     p.addParameter('ElementLabelColor', 'r', @(x) ischar(x) || isstring(x) || (isnumeric(x) && numel(x)==3));
     p.addParameter('FontSize', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
 
@@ -15,29 +19,7 @@ function h = plotSolution(varargin)
 
     params = p.Results;
 
-%     h = plotMesh(results.Res.mesh);
-    mesh = params.Res.mesh;
-    figHandle = figure('Units', 'pixels', 'Position', [150, 150, 1600, 1200]);
-
-    faces = mesh.generateQuads();
-
-    h = patch('Faces', faces', 'Vertices', mesh.nodes', 'FaceColor', 'c', 'EdgeColor', 'k','clipping','off');
-    center = mesh.center;
-    [l, r] = mesh.box;
-    len = max(r - l) / 2;
-    lim = [center - len, center + len];
-    axis equal;
-    xlim(lim(1,:));
-    ylim(lim(2,:));
-    zlim(lim(3,:));
-
-    scale = 0.025 * len;
-    if params.NodeLabels
-        drawNodes(mesh,h,params,scale);
-    end
-    if params.ElementLabels
-        drawElements(mesh,h,params,scale);
-    end
+    h = plotMesh(getMeshParams(params){:});
 
     if ~isempty(params.ColorMapData)
         colormap turbo;
@@ -45,48 +27,34 @@ function h = plotSolution(varargin)
         set(h,'facecolor','interp');
         set(h, 'facevertexcdata', params.ColorMapData);
     end
-    displacement = params.Res.displacement;
-    set(h, 'vertices',mesh.nodes' + params.Scale * [displacement.ux,displacement.uy,displacement.uz]);
+    if ~isempty(params.Displacement)
+        d = params.Displacement;
+        if isempty(params.Scale)
+            magnitude = max (sqrt(d.ux.^2 + d.uy.^2 + d.uz.^2));
+            if magnitude < 1e-6
+                scale = 1;
+            else
+                box = params.Mesh.box;
+                len = max(box(:,2) - box(:,1));
+                scale = 0.1 * len / magnitude
+            end
+        else
+            scale = params.Scale;
+        end
+        vertices = get(h, 'vertices') + scale * [d.ux, d.uy, d.uz];
+        set(h, 'vertices', vertices);
+    end
 end
 
-function drawNodes(mesh,patchHandle,params,scale)
-    normals = get(patchHandle,'vertexnormals');
-    if isempty(normals)
-        light;
-        lighting gouraud;
-        lighting none;
-        normals = get(patchHandle,'vertexnormals');
+function meshParams = getMeshParams(p)
+    meshParams = {p.Mesh,'NodeLabelColor',p.NodeLabelColor,'FacesLabelColor',p.FacesLabelColor,'ElementLabelColor',p.ElementLabelColor,'FontSize',p.FontSize};
+    if p.NodeLabels
+        meshParams(end+1) = {'NodeLabels'};
     end
-    textPosition = mesh.nodes + scale * normals';
-    x = textPosition(1,:);
-    y = textPosition(2,:);
-    z = textPosition(3,:);
-    labels = arrayfun(@(i) sprintf('N%d',i),1:size(mesh.nodes,2), 'UniformOutput', false);
-    text(x,y,z,labels,'color',params.NodeLabelColor, 'fontsize',params.FontSize);
-end
-
-function drawElements(mesh,patchHandle,params,scale)
-    [faces, quadToHexas] = mesh.generateQuads();
-
-    normals = get(patchHandle,'facenormals');
-    if isempty(normals)
-        light;
-        lighting gouraud;
-        lighting none;
-        normals = get(patchHandle,'facenormals');
+    if p.FaceLabels
+        meshParams(end+1) = {'FaceLabels'};
     end
-
-    textBase = mesh.nodes(:,faces);
-    textBase = reshape(textBase,3,4,[]);
-    textBase = mean(textBase,2);
-    textBase = reshape(textBase,3,[]);
-    normals = get(patchHandle,'facenormals');
-
-    textPosition = textBase + scale * normals';
-    x = textPosition(1,:);
-    y = textPosition(2,:);
-    z = textPosition(3,:);
-
-    labels = arrayfun(@(i) sprintf('E%d',i),quadToHexas, 'UniformOutput', false);
-    text(x,y,z,labels,'color',params.ElementLabelColor, 'fontsize',params.FontSize);
+    if p.ElementLabels
+        meshParams(end+1) = {'ElementLabels'};
+    end
 end

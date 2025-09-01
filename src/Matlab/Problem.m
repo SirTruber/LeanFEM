@@ -2,9 +2,9 @@ function result = Problem
     model = Model(Mesh.import('../../grid/dirka.4ekm'));
 
     attach = Boundary(model.geometry.mesh);
-    force = Force(model.geometry.mesh);
+    model.addPressure([521:3:542,546],1e-4);
 
-    result = sol(model,attach,force);
+    result = sol(model,attach);
 %     grid = Mesh.import('../../grid/dirka.4ekm');
 %     mat = MaterialDB().materials('steel');
 %     el = HM24(mat);
@@ -12,9 +12,9 @@ function result = Problem
 %     [K, M] = el.assemble(grid);
 
 %     attach = Boundary(grid.mesh);
+
 %     force = Force(grid.mesh);
 
-%     [quads, quadToHexas] = generateQuads(grid.mesh.hexas);
 %     Kurant = 10;
 %     dt = Kurant * 0.1308 / mat.waveSpeed
 %     omega = 0.001;
@@ -23,25 +23,25 @@ function result = Problem
 %
 %     solver.step(force);
 %     solver = Newmark(dt,attach,K,M,zeros(3*grid.numVertices,1),force);
-%     count = 0.5/omega/dt
+%     count = 2/omega/dt
 %     h = plotMesh(grid.mesh);
-%     xlim([-10 10]);
-%     ylim([-2 18]);
-%     zlim([-9 11]);
-%     clim([0 0.2]);
-%     colormap turbo;
+
+%     clim([0 250]);
+%     colormap jet;
 %     colorbar;
 %     set(h,'facecolor','interp');
+%     set(h, 'edgecolor','none');
 %     DelayTime = 10 / count;
 %     for i = 1:count
 %         t = i * dt;
 %         disp(100*i/count);
-%         mod = sin(pi* omega * t);
+%         mod = sin(pi* omega * t)
 %         solver.step(force * mod);
 %         pos = reshape(grid.mesh.nodes(:) + solver.U,3,[]);
 %         set(h,'vertices',pos');
+%         stress = 1e5 * VonMisesStress(el,grid.mesh,solver.U);
 %         stress = arrayfun(@(i) VonMises(el, grid.mesh.points(i), getU(solver.U, grid.mesh.hexas(:,i))), quadToHexas);
-%         set(h, 'FaceVertexCData',stress');
+%         set(h, 'FaceVertexCData',stress);
 %         drawnow;
 % %         frame = getframe();
 % %         im = frame2im(frame);
@@ -73,7 +73,9 @@ end
 function q = Force(mesh)
     q = zeros(3 * size(mesh.nodes,2),1);
     q_ind = find(mesh.nodes(1,:) == 9);
-    q(3*q_ind - 2) = -1e-1; % Примерно 100 тонн-сил
+    q_edge = 3 * find(mesh.nodes(2,:) == 0 | mesh.nodes(2,:) == 9) - 2;
+    q(3*q_ind - 2) = -5e-4; % Примерно 0.5 тонн-сил
+    q(q_edge) = q(q_edge) / 2;
 end
 
 function stress = VonMises(element, points, U)
@@ -81,26 +83,33 @@ function stress = VonMises(element, points, U)
     stress = 1/sqrt(2) * sqrt((S(1) - S(2))^2 + (S(2) - S(3))^2 + (S(3) - S(1))^2 + 6*(S(4)^2 + S(5)^2 + S(6)^2));
 end
 
+
+function vonMises = VonMisesStress(el, mesh, U)
+        n = size(mesh.nodes,2);
+        m = size(mesh.hexas,2);
+
+        stress = zeros(6,n);
+
+        [~, VE] = mesh.volume;
+        weight = zeros(1,n);
+        for i=1:m
+            nodes = mesh.hexas(:,i)';
+
+            weight(nodes) = weight(nodes) + VE(i);
+
+            stressEl = el.elasticity * el.computeGradient(mesh.points(i)) * U(NodesSub2ind(nodes));
+
+            stress(:,nodes) = stress(:,nodes) + stressEl(1:6) * VE(i);
+        end
+        stress = stress ./ weight;
+    vonMises = sqrt(0.5 * ((stress(1,:) - stress(2,:)).^2 + (stress(2,:) - stress(3,:)).^2 + (stress(3,:) - stress(1,:)).^2 + 6 * (stress(4,:).^2 + stress(5,:).^2 + stress(6,:).^2)))';
+end
+
+function ind = NodesSub2ind(sub)
+    ind = 3 * repelem(sub,1,3) - repmat([2,1,0],1,numel(sub));
+end
+
 function ret = getU(U, nodes)
     ind = 3 * repelem(nodes, 3, 1) - repmat([2;1;0],8,1);
     ret = U(ind);
 end
-
-function [quads,quadToHexas] = generateQuads(hexas)
-            a = int32( ...
-           [1 2 3 4;...  % Грань 1 (нижняя)
-            5 8 7 6;...  % Грань 2 (верхняя)
-            1 5 6 2;...  % Грань 3 (передняя)
-            4 3 7 8;...  % Грань 4 (задняя)
-            2 6 7 3;...  % Грань 5 (правая)
-            1 4 8 5]);    % Грань 6 (левая)
-
-            quads = reshape(hexas(a',:),4,[]); %Собираем все грани гексаэдров
-
-            [~,ida,idx] = unique(sort(quads)',"rows","stable"); %Оставляем только уникальные
-            count = accumarray(idx,1);
-
-            quadToHexas = repelem(1:size(hexas,2),6);
-            quads = quads(:,ida(count == 1)); % И которые встречаются только один раз
-            quadToHexas = quadToHexas(ida(count == 1));
-        end

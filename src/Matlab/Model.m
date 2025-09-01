@@ -17,10 +17,37 @@ classdef Model < handle
         faceIC
         edgeIC
         vertexIC
+
+        load
+        bc
     end
     methods
-        function obj = Model(geometry)
-            obj.geometry = geometry;
+        function this = Model(geometry)
+            this.geometry = geometry;
+            this.load = zeros(3,geometry.numVertices);
+        end
+
+        function addPressure(this,ind,value)
+            mesh = this.geometry.mesh;
+            n = numel(ind);
+            faces = mesh.generateQuads()(:,ind);
+
+            nodes = mesh.nodes(:,faces);
+
+            A = nodes(:,1:4:end);
+            B = nodes(:,2:4:end);
+            C = nodes(:,3:4:end);
+            D = nodes(:,4:4:end);
+
+            v1 = B - A;
+            v2 = C - A;
+            v3 = D - A;
+
+            normals = 0.5 * (cross(v1,v2) + cross(v1,v3));
+            forces = value * normals / 4;
+            for i = 1:n
+                this.load(:,faces(:,i)) = this.load(:,faces(:,i)) + forces(:,i);
+            end
         end
 
         function region = addRegion(obj,elemID,feSpace)

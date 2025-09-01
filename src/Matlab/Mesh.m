@@ -89,9 +89,10 @@ classdef Mesh < handle
             quadToHexas = quadToHexas(ida(count == 1));
         end
 
-        function [left,right] = box(mesh)
-            left = min(mesh.nodes,[],2);
-            right = max(mesh.nodes,[],2);
+        function coord = box(mesh)
+            coord = zeros(3,2);
+            coord(:,1) = min(mesh.nodes,[],2);
+            coord(:,2) = max(mesh.nodes,[],2);
         end
 
         function p = center(mesh)
