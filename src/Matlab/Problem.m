@@ -1,6 +1,7 @@
 function result = Problem
     model = Model(Mesh.import('../../grid/dirka.4ekm'));
 
+    model.changeTask();
     attach = Boundary(model.geometry.mesh);
     model.addPressure([521:3:542,546],1e-4);
 
@@ -77,12 +78,6 @@ function q = Force(mesh)
     q(3*q_ind - 2) = -5e-4; % Примерно 0.5 тонн-сил
     q(q_edge) = q(q_edge) / 2;
 end
-
-function stress = VonMises(element, points, U)
-    S = element.elasticity * element.computeGradient(points + reshape(U,3,[])) * U;
-    stress = 1/sqrt(2) * sqrt((S(1) - S(2))^2 + (S(2) - S(3))^2 + (S(3) - S(1))^2 + 6*(S(4)^2 + S(5)^2 + S(6)^2));
-end
-
 
 function vonMises = VonMisesStress(el, mesh, U)
         n = size(mesh.nodes,2);

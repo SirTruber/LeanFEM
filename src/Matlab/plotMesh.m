@@ -68,7 +68,7 @@ end
 function drawElements(mesh,patchHandle,params,scale)
     [faces, quadToHexas] = mesh.generateQuads();
 
-    textBase = getFacesTextPosition(mesh,faces)
+    textBase = getFacesTextPosition(mesh,faces);
     normals = getNormals(patchHandle,'facenormals');
 
     textPosition = textBase + scale * normals';

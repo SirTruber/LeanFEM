@@ -1,3 +1,4 @@
-function vonMises = evaluateVonMisesStress(stress)
-    vonMises = sqrt(0.5 * ((stress(1,:) - stress(2,:)).^2 + (stress(2,:) - stress(3,:)).^2 + (stress(3,:) - stress(1,:)).^2 + 6 * (stress(4,:).^2 + stress(5,:).^2 + stress(6,:).^2)))';
+function result = evaluateVonMisesStress(result)
+    stress = result.stress;
+    result.vonMisesStress = sqrt(0.5 * ((stress.sxx - stress.syy).^2 + (stress.syy - stress.szz).^2 + (stress.szz - stress.sxx).^2 + 6 * (stress.sxy.^2 + stress.syz.^2 + stress.sxz.^2)));
 end

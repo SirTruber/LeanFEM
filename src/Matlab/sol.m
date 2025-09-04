@@ -1,71 +1,154 @@
 function result = sol(fem, constraint)
     mat = MaterialDB().materials('steel');
-    el = HM24(mat);
+    el = HM24(mat,false);
+    mesh = fem.geometry.mesh;
+
+%         s = Newmark;
+%         T = 2 * 18 / mat.waveSpeed
+%         if isa(s,'Central')
+%             Kurant = 0.12
+%             dt = Kurant * 0.1308 / mat.waveSpeed;
+%         else
+%             dt = T / 100;
+%             Kurant = mat.waveSpeed * dt / 0.1308
+%         end
+%         omega = 1/T;
+%         omega *= 1;
+%         count = 3.25/omega/dt
+%
+%         s.setParam(dt);
+%
+%         [K,M] = el.assemble(fem.geometry);
+%         idx = [1:274];
+%         smallIdx = sub2ind([3, fem.geometry.numVertices], repmat(1:2,1,numel(idx)), repelem(idx,2));
+%         s.K = K(smallIdx,smallIdx);
+%         s.M = M(smallIdx,smallIdx);
+%
+%         constraint = 205:214;
+%         left = sub2ind([2, fem.geometry.numVertices], repmat(1:2,1,numel(constraint)), repelem(constraint,2));
+%         constraint = [1:25:176, 25:25:175, 214, 224, 204,264, 274 ];
+%         bottom = sub2ind([2, fem.geometry.numVertices], repmat(2,1,numel(constraint)), constraint);
+%         s.constrain([left, bottom],[]);
+%         A0 = zeros(size(s.K,1),1);
+%         U0 = zeros(size(A0));
+%         V0 = zeros(size(A0));
+%         state = s.IC(U0,V0,A0);
+%
+%         size(fem.load)
+%         load = fem.load([1,2],1:274)(:);
+%         disp(count * dt);
+%         h = plotMesh(fem.geometry.mesh);
+%         clim([0 50]);
+%         set(h, 'edgecolor','none');
+%
+%         vertices = get(h,'vertices');
+%         tic
+%         for i = 1:count
+%             mod = sin(2 * pi * omega * s.t);
+%             state = s.step(state,mod*load(:));
+%             res = reshape(state(:,1),2,[]);
+%             res(end+1,:) = zeros(1,size(res,2));
+%             res = repmat(res,1,2);
+%             R = StaticResult(mesh,el,res(:));
+%             plotSolution(R.mesh,R.vonMisesStress,R.displacement, 'Scale', 100, 'PlotHandle', h);
+%             drawnow;
+%         end
+%         toc
+%         res = reshape(state(:,1),2,[]);
+%         res(end+1,:) = zeros(1,size(res,2));
+%         res = repmat(res,1,2);
+%         R = StaticResult(mesh,el,res(:));
+%
+%         plotSolution(R.mesh,R.vonMisesStress,R.displacement);
+
     if strcmp(fem.analysisType, 'static')
+        s = Static;
 
-        q = fem.load(:);
-        K = el.assemble(fem.geometry);
-        mesh = fem.geometry.mesh;
+        s.assemble(el, fem.geometry);
+        s.constrain(constraint,[]);
 
-        K(constraint,:) = 0;
-        K(:,constraint) = 0;
-        K(sub2ind(size(K),constraint,constraint)) = 1;
-
-        q(constraint) = 0;
-
-        U = K \ q;
-        tmp = reshape(U,3,[]);
-        result = StaticResult(mesh,el,U);
-%         result.displacement = struct('ux',tmp(1,:)','uy',tmp(2,:)','uz',tmp(3,:)');
+        U = s.solve(fem.load(:));
+        R = StaticResult(mesh,el,U);
+        plotSolution(R.mesh,R.vonMisesStress,R.displacement);
+        clim([0 18]);
+%     elseif strcmp(fem.analysisType, 'dynamic')
+%         small = Newmark;
+%         big = Central;
 %
-%         [strain,stress] = evaluateStrainStress(el, mesh, U);
+%         T = 2 * 18 / mat.waveSpeed
 %
-%         result.stress = struct('sxx',stress(1,:)','syy',stress(2,:)','szz',stress(3,:)','sxy',stress(4,:)','syz',stress(5,:)','szx',stress(6,:)');
-%         result.strain = struct('exx',strain(1,:)','eyy',strain(2,:)','ezz',strain(3,:)','exy',strain(4,:)','eyz',strain(5,:)','ezx',strain(6,:)');
-%         result.vonMisesStress = evaluateVonMisesStress(stress);
+%         Kurant = 0.8
+%             dt = Kurant / mat.waveSpeed;
+% %         else
+% %             dt = T / 100;
+% %             Kurant = mat.waveSpeed * dt / 0.1308
+% %         end
 %
-%         result.mesh = mesh;
-    end
-end
+%         small.setParam(dt);
+%         big.setParam(dt);
+%         [K,M] = el.assemble(fem.geometry);
+%         idx = [1:204,275:478];
+%         smallIdx = sub2ind([3, fem.geometry.numVertices], repmat(1:3,1,numel(idx)), repelem(idx,3));
+%         small.K = K(smallIdx,smallIdx);
+%         small.M = M(smallIdx,smallIdx);
+%
+%         idx = [151:274,425:548];
+%         bigIdx = sub2ind([3, fem.geometry.numVertices], repmat(1:3,1,numel(idx)), repelem(idx,3));
+%         big.K = K(bigIdx,bigIdx);
+%         big.M = M(bigIdx,bigIdx);
+%         big.constrain(sub2ind([2, fem.geometry.numVertices], repmat(1:2,1,numel(constraint)), repelem(constraint,2)),[]);
+%         moved = [151:204];
+%         small.constrain([],sub2ind([2, fem.geometry.numVertices], repmat(1:2,1,numel(moved)), repelem(moved,2)));
+%
+%         state = zeros(size())
+%         R = 'd';
+    else
+        s = Newmark;
+%         s = Central;
 
-function fixed = getFixedDOF(fem)
-
-end
-
-function [strain,stress] = evaluateStrainAndStress(el, mesh, U)
-        n = size(mesh.nodes,2);
-        m = size(mesh.hexas,2);
-
-        strain = zeros(6,n);
-        stress = zeros(6,n);
-
-        [~, VE] = mesh.volume;
-        weight = zeros(1,n);
-        for i=1:m
-            nodes = mesh.hexas(:,i)';
-
-            weight(nodes) = weight(nodes) + VE(i);
-
-            strainEl = el.computeGradient(mesh.points(i)) * U(NodesSub2ind(nodes));
-            stressEl = el.elasticity * strainEl;
-
-            strain(:,nodes) = strain(:,nodes) + strainEl(1:6) * VE(i);
-            stress(:,nodes) = stress(:,nodes) + stressEl(1:6) * VE(i);
+        T = 2 * 18 / mat.waveSpeed
+        if isa(s,'Central')
+            Kurant = 0.12
+            dt = Kurant * 0.1308 / mat.waveSpeed;
+        else
+            dt = T / 100;
+            Kurant = mat.waveSpeed * dt / 0.1308
         end
-        strain = strain ./ weight;
-        stress = stress ./ weight;
+        omega = 1/T;
+        omega *= 1;
+        count = 3.25/omega/dt
+
+        s.setParam(dt);
+
+        s.assemble(el, fem.geometry);
+        s.constrain(constraint,[]);
+
+%         A0 = s.M \ fem.load(:);
+        A0 = zeros(size(fem.load(:)));
+        U0 = zeros(size(A0));
+        V0 = zeros(size(A0));
+        state = s.IC(U0,V0,A0);
+
+        disp(count * dt);
+%         h = plotMesh(fem.geometry.mesh);
+%         clim([0 50]);
+%         set(h, 'edgecolor','none');
+
+%         vertices = get(h,'vertices');
+        tic
+        for i = 1:count
+            mod = sin(2 * pi * omega * s.t);
+            state = s.step(state,mod*fem.load(:));
+%             R = StaticResult(mesh,el,state(:,1));
+%             plotSolution(R.mesh,R.vonMisesStress,R.displacement, 'Scale', 100, 'PlotHandle', h);
+%             drawnow;
+        end
+        toc
+        R = StaticResult(mesh,el,state(:,1));
+
+        plotSolution(R.mesh,R.vonMisesStress,R.displacement);
+    end
+    result = R;
 end
 
-function vonMises = evaluateVonMisesStress(stress)
-    vonMises = sqrt(0.5 * ((stress(1,:) - stress(2,:)).^2 + (stress(2,:) - stress(3,:)).^2 + (stress(3,:) - stress(1,:)).^2 + 6 * (stress(4,:).^2 + stress(5,:).^2 + stress(6,:).^2)))';
-end
-
-function [VE, VN] = getWeightCoeff(mesh)
-    [~, VE] = mesh.volume;
-    VN = accumarray(mesh.hexas(:), repmat(VE, 8, 1)(:), [size(mesh.nodes,2), 1]) / 8;
-    VE = VE';
-end
-
-function ind = NodesSub2ind(sub)
-    ind = 3 * repelem(sub,1,3) - repmat([2,1,0],1,numel(sub));
-end
+% function write

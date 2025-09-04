@@ -1,79 +1,80 @@
 % Решатель динамических задач методом Ньюмарка(линейное ускорение в интервале времени)
-classdef Newmark < Static
-    properties (Constant)
+classdef Newmark < handle
+    properties
         b = 0.5    % Параметр демпфирования (0.5 для усреднения) >= 0.5
         a = 0.25   % Параметр устойчивости (0.25 для неявной схемы) >=  0.25 * (0.5 + beta)^2
-    end
-    properties
         % Состояние системы
         coeffs      % Постоянные интегрирования [8x1]
         time_step   % Временной шаг             (Число)
+        count = 0
         t = 0       % Текущее время             (Число)
-        attach      % Данные закрепления        (ConstraintData)
+        fixed      % Данные закрепления        (ConstraintData)
         % Матрицы системы
         M           % Матрица масс              (sparse)
-        % Результат счёта
-        V           % Узловые скорости          [Nx1]
-        A           % Узловые ускорения         [Nx1]
-
-        U_prev      % Узловые перемещения       [Nx1]
-        V_prev      % Узловые скорости          [Nx1]
-        A_prev      % Узловые ускорения         [Nx1]
+        K           % Матрица жесткости         (sparse)
     end
     methods
-        function obj = Newmark(dt, constraint, stiffness, mass, V0, loads)
-            obj = obj@Static(constraint,stiffness);
-            obj.coeffs = [ 1/obj.a/dt^2; ...
-                         obj.b/obj.a/dt; ...
-                             1/obj.a/dt; ...
-                          0.5/obj.a - 1; ...
-                        obj.b/obj.a - 1; ...
-           0.5 * dt * (obj.b/obj.a - 2); ...
-                       dt * (1 - obj.b); ...
-                              obj.b*dt];
-
-            obj.time_step = dt;
-
-            n = size(obj.K,1);
-
-            obj.A = zeros(n, 1);
-            if isempty(V0)
-                obj.V = zeros(n, 1);
-            else
-                obj.V = V0;
-            end
-%             if isempty(loads)
-%             else
-%                 obj.A = mass \ loads.'(:);
-            obj.U_prev = zeros(n, 1);
-            obj.V_prev = zeros(n, 1);
-            obj.A_prev = zeros(n, 1);
-
-            obj.M = mass;
-            obj.M(constraint.nodes,:) = 0;
-            obj.M(:,constraint.nodes) = 0;
-
-            obj.K = chol(obj.K + obj.coeffs(1) * obj.M);
+        function UVA = IC(this,U0,V0,A0)
+            UVA = [U0,V0,A0];
         end
 
-        function step(obj,force)
-            persistent count;
-            if isempty(count)
-                count = 0;
+        function setParam(this,dt,a,b)
+            if nargin == 2
+                a = this.a;
+                b = this.b;
             end
-            count = count + 1;
-            obj.t = obj.time_step * count;
+            this.time_step = dt;
+            this.coeffs = [1/a/dt^2; ...
+                             b/a/dt; ...
+                             1/a/dt; ...
+                          0.5/a - 1; ...
+                            b/a - 1; ...
+               0.5 * dt * (b/a - 2); ...
+                       dt * (1 - b); ...
+                              b*dt];
+            this.a = a;
+            this.b = b;
+        end
 
-            obj.U_prev = obj.U;
-            obj.V_prev = obj.V;
-            obj.A_prev = obj.A;
+        function assemble(this, element, geometry)
+            [this.K,this.M] = element.assemble(geometry);
+        end
 
-            r = force.'(:) + obj.M * (obj.coeffs(1) * obj.U_prev + obj.coeffs(3) * obj.V_prev + obj.coeffs(4) * obj.A_prev);
-            r(obj.attach.nodes) = obj.attach.values;
+        function constrain(this, fixed, moved)
+            this.fixed = fixed;
+            toZero = [fixed,moved];
 
-            obj.U = obj.K\(obj.K'\r);
-            obj.A = obj.coeffs(1) * (obj.U - obj.U_prev) - obj.coeffs(3) * obj.V_prev - obj.coeffs(4) * obj.A_prev;
-            obj.V = obj.V_prev + obj.coeffs(7) * obj.A_prev + obj.coeffs(8) * obj.A;
+            this.K(toZero,:) = 0;
+            this.K(:,fixed) = 0;
+            this.K(sub2ind(size(this.K),toZero,toZero)) = 1;
+
+            this.M(toZero,:) = 0;
+            this.M(:,fixed) = 0;
+            this.M(sub2ind(size(this.K),toZero,toZero)) = 1;
+
+            this.K = chol(this.K + this.coeffs(1) * this.M);
+%             this.K = this.K + this.coeffs(1) * this.M;
+        end
+
+        function nextUVA = step(this, UVA, force)
+            U_prev = UVA(:,1);
+            V_prev = UVA(:,2);
+            A_prev = UVA(:,3);
+
+            q_eff = force + this.M * (this.coeffs(1) * U_prev + this.coeffs(3) * V_prev + this.coeffs(4) * A_prev);
+            q_eff(this.fixed) = 0;
+%             max(q_eff)
+
+            U = this.K\(this.K'\q_eff);
+
+%             U = this.K\q_eff;
+            A = this.coeffs(1) * (U - U_prev) - this.coeffs(3) * V_prev - this.coeffs(4) * A_prev;
+            V = V_prev + this.coeffs(7) * A_prev + this.coeffs(8) * A;
+
+            this.count += 1;
+            this.t = this.time_step * this.count;
+
+            nextUVA = [U,V,A];
         end
     end
 end

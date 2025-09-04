@@ -2,30 +2,41 @@
 classdef Static < handle
     properties
         % Состояние системы
-        attach      % Данные закрепления            (ConstraintData)
+        fixed      % Данные закрепления (векторы)
         % Матрицы системы
-        K           % Эффективная матрица жесткости (sparse)
-        % Результат счёта
-        U           % Узловые перемещения           [Nx1]
+        K           % Матрица жесткости (sparse)
     end
     methods
-        function obj = Static(constraint, stiffness)
-            obj.attach = constraint;
+%         function obj = Static()
+%             obj.fixed = fixed;
 
-            obj.K = stiffness;
+%             obj.K = stiffness;
 
-            obj.K(constraint.nodes,:) = 0;
-            obj.K(:,constraint.nodes) = 0;
-            obj.K(sub2ind(size(obj.K),constraint.nodes,constraint.nodes)) = 1;
+%             toZero = unique([fixed,moved]);
+%             obj.K(toZero,:) = 0;
+%             obj.K(:,fixed) = 0;
+%             obj.K(sub2ind(size(obj.K),toZero,toZero)) = 1;
 
-            obj.U = zeros(size(obj.K,1),1);
+%             obj.U = zeros(size(obj.K,1),1);
+%         end
+
+        function assemble(this, element, geometry)
+            this.K = element.assemble(geometry);
         end
 
-        function step(obj,force)
-        q = force.'(:);
-        q(obj.attach.nodes) = obj.attach.values;
+        function constrain(this, fixed, moved)
+            this.fixed = fixed;
+            toZero = [fixed,moved];
 
-        obj.U = obj.K \ q;
+            this.K(toZero,:) = 0;
+            this.K(:,fixed) = 0;
+            this.K(sub2ind(size(this.K),toZero,toZero)) = 1;
+        end
+
+        function [U, R] = solve(this,force)
+            q = force;
+            q(this.fixed) = 0;
+            U = this.K \ q;
         end
     end
 end

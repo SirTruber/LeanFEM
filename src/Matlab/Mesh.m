@@ -52,6 +52,26 @@ classdef Mesh < handle
             coord = mesh.nodes(:,mesh.hexas(:,elemID));
         end
 
+        function export(mesh,filename)
+            if nargin == 0
+                error('file not found');
+            end
+            unwind_protect
+                fileID = fopen(filename,"w");
+                if ~is_valid_file_id(fileID)
+                    error('file not found');
+                end
+
+                [~, ~, ext] = fileparts(filename);
+                saver = getSaver(ext);
+                saver(fileID,mesh);
+            unwind_protect_cleanup
+                if fileID ~= -1
+                    fclose(fileID);
+                end
+            end_unwind_protect
+        end
+
         function validate(mesh)
         end
 
@@ -113,6 +133,17 @@ function loader = getLoader(ext)
     end
 end
 
+function saver = getSaver(ext)
+    switch lower(ext)
+        case '.4ekm'
+            saver = @write4ekm;
+        case '.romanov'
+            saver = @writeRomanov;
+        otherwise
+            error('Unsupported format: %s', ext);
+    end
+end
+
 function mesh = parse4ekm(fileID)
     headerSize = [2;1];
     nodesDim = 3;
@@ -139,19 +170,19 @@ function mesh = parse4ekm(fileID)
 end
 
 function write4ekm(fileID, mesh)
-    numberOfNodes = rows(data.nodes);
-    numberOfHexas = rows(data.hexas);
+    numberOfNodes = size(mesh.nodes,2);
+    numberOfHexas = size(mesh.hexas,2);
 
-    fprintf(fileID,'%d\n',nodes_size);
-    fprintf(fileID,'%d\n',hexas_size);
+    fprintf(fileID,'%d\n',numberOfNodes);
+    fprintf(fileID,'%d\n',numberOfHexas);
 
     nodesSpec = '%11f%11f%11f\n';
     hexasSpec = '%7d%7d%7d%7d%7d%7d%7d%7d\n';
-    for i = 1:nodes_size
-        fprintf(fileID, nodesSpec, data.nodes(i,:));
+    for i = 1:numberOfNodes
+        fprintf(fileID, nodesSpec, mesh.nodes(:,i));
     end
-    for i = 1:hexas_size
-        fprintf(fileID, hexasSpec, data.hexas(i,:));
+    for i = 1:numberOfHexas
+        fprintf(fileID, hexasSpec, mesh.hexas(:,i));
     end
 end
 

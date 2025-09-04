@@ -11,8 +11,12 @@ classdef HM24 < handle
         param       % Параметр моментной схемы. Определяет влияние моментных составляющих на решение (число)
     end
     methods
-        function this = HM24(material)
-            tmp = ones(24) + eye(24);
+        function this = HM24(material,distributed)
+            tmp = eye(24);
+            if distributed
+                tmp += ones(24);
+            end
+
             this.density = material.density * tmp / sum(tmp(:));
             this.elasticity = blkdiag(material.firstLame(ones(3)) + 2 * material.secondLame * eye(3), material.secondLame * eye(15));
             this.param = 1.0;

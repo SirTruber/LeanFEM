@@ -14,15 +14,21 @@ function h = plotSolution(varargin)
     p.addParameter('FacesLabelColor', 'b', @(x) ischar(x) || isstring(x) || (isnumeric(x) && numel(x)==3));
     p.addParameter('ElementLabelColor', 'r', @(x) ischar(x) || isstring(x) || (isnumeric(x) && numel(x)==3));
     p.addParameter('FontSize', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
+    p.addParameter('PlotHandle',[], @(x) isnumeric(x));
 
     parse(p, varargin{:});
 
     params = p.Results;
 
-    h = plotMesh(getMeshParams(params){:});
+    h = 0;
+    if isempty(params.PlotHandle)
+        h = plotMesh(getMeshParams(params){:});
+    else
+        h = params.PlotHandle;
+    end
 
     if ~isempty(params.ColorMapData)
-        colormap turbo;
+        colormap cool;
         colorbar;
         set(h,'facecolor','interp');
         set(h, 'facevertexcdata', params.ColorMapData);
@@ -41,7 +47,7 @@ function h = plotSolution(varargin)
         else
             scale = params.Scale;
         end
-        vertices = get(h, 'vertices') + scale * [d.ux, d.uy, d.uz];
+        vertices = params.Mesh.nodes' + scale * [d.ux, d.uy, d.uz];
         set(h, 'vertices', vertices);
     end
 end
