@@ -4,7 +4,7 @@ function h = plotSolution(varargin)
     p.addRequired('Mesh', @(x) validateattributes(x, {'Mesh'}, {}));
     p.addOptional('ColorMapData', [], @(x) validateattributes(x, {'numeric'}, {'column'}));
     p.addOptional('Displacement', [], @(x) validateattributes(x, {'struct'}, {}));
-%     addParameter(p, 'FlowData', [], @(x) validateattributes(x, {'numeric'}, {'2d', 'ncols', 3}));
+    addParameter(p, 'FlowData', [], @(x) validateattributes(x, {'numeric'}, {'2d', 'ncols', 3}));
     addParameter(p, 'Scale', [], @(x) validateattributes(x, {'numeric'}, {'scalar'}));
 
     p.addSwitch('NodeLabels');
@@ -27,6 +27,22 @@ function h = plotSolution(varargin)
         h = params.PlotHandle;
     end
 
+    if ~isempty(params.FlowData)
+        persistent q = []
+        1 + 1;
+        if isempty(q)
+            disp('make');
+            ax = get(h,'parent');
+            vertices = get(h,'vertices');
+            set(h,'visible','off');
+            hold(ax,'on');
+            q = quiver3(ax,vertices(:,1),vertices(:,2),vertices(:,3),params.FlowData(:,1),params.FlowData(:,2),params.FlowData(:,3));
+            hold(ax,'off');
+        else
+            set(q,'udata',params.FlowData(:,1),'vdata',params.FlowData(:,2),'wdata',params.FlowData(:,3));
+        end
+        return
+    end
     if ~isempty(params.ColorMapData)
         colormap cool;
         colorbar;
