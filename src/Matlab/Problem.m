@@ -1,110 +1,182 @@
 function result = Problem
-    model = Model(Mesh.import('../../grid/dirka.4ekm'));
+    model = Model(Mesh.import('dirka2.4ekm'));
 
     model.changeTask();
-    attach = Boundary(model.geometry.mesh);
     model.addPressure([521:3:542,546],1e-4);
 
-    result = sol(model,attach);
-%     grid = Mesh.import('../../grid/dirka.4ekm');
-%     mat = MaterialDB().materials('steel');
-%     el = HM24(mat);
+    mat = MaterialDB().materials('steel');
+    el = HM24(mat,false);
+    mesh = model.geometry.mesh;
 
-%     [K, M] = el.assemble(grid);
+    meshSize = size(mesh.nodes);
 
-%     attach = Boundary(grid.mesh);
+    left = find(mesh.nodes(1,:) == -9);
+    bottom = find(mesh.nodes(2,:) == 0);
+    constraint = unique([3*left, 3*left - 1,3*left - 2, 3*bottom - 1]);
 
-%     force = Force(grid.mesh);
+    model.analysisType = 'Expl';
+    U1 = sol(model,constraint,false);
 
-%     Kurant = 10;
-%     dt = Kurant * 0.1308 / mat.waveSpeed
-%     omega = 0.001;
-%
-%     solver = Static(attach,K);
-%
-%     solver.step(force);
-%     solver = Newmark(dt,attach,K,M,zeros(3*grid.numVertices,1),force);
-%     count = 2/omega/dt
-%     h = plotMesh(grid.mesh);
+    model.analysisType = 'Impl';
+    U2 = sol(model,constraint,false);
 
-%     clim([0 250]);
-%     colormap jet;
-%     colorbar;
-%     set(h,'facecolor','interp');
-%     set(h, 'edgecolor','none');
-%     DelayTime = 10 / count;
-%     for i = 1:count
-%         t = i * dt;
-%         disp(100*i/count);
-%         mod = sin(pi* omega * t)
-%         solver.step(force * mod);
-%         pos = reshape(grid.mesh.nodes(:) + solver.U,3,[]);
-%         set(h,'vertices',pos');
-%         stress = 1e5 * VonMisesStress(el,grid.mesh,solver.U);
-%         stress = arrayfun(@(i) VonMises(el, grid.mesh.points(i), getU(solver.U, grid.mesh.hexas(:,i))), quadToHexas);
-%         set(h, 'FaceVertexCData',stress);
-%         drawnow;
-% %         frame = getframe();
-% %         im = frame2im(frame);
-% %         [imind, cm] = rgb2ind(im);
-% %
-% %         imwrite(imind, cm, 'implicite.gif', 'gif', 'WriteMode', 'append', 'DelayTime', DelayTime);
-%     end
-%     disp(count * dt);
-end
+    # h = plotMesh(mesh);
+    # axis off
+    #
+    # set(h,'edgecolor','none');
+    # clim([0,40]);
+    # R = StaticResult(mesh,el,U1(:,8));
+    #     plotSolution(R.mesh,R.vonMisesStress,R.displacement, 'Scale', 100, 'PlotHandle', h);
+    #     filename = sprintf('BigMass.png',i);
+    #     print(filename);
+    #     R = StaticResult(mesh,el,U2(:,8));
+    #     plotSolution(R.mesh,R.vonMisesStress,R.displacement, 'Scale', 100, 'PlotHandle', h);
+    #     filename = sprintf('SmallMass.png',i);
+    #     print(filename);
+    small = Newmark;
+    big = Central;
 
-function attach = Boundary(mesh)
-    left = 3 * find(mesh.nodes(1,:) == -9);
-    left = [left - 2, left - 1, left];
+    omega = mat.waveSpeed / 18;
+    T = 1 / omega
 
-    allZ = 1:size(mesh.nodes,2);
+    Kurant = 0.56
+    # dt = Kurant / mat.waveSpeed
+    dt = 0.5
+    count = 3.25 * T/dt
 
-    allZ = 3 * allZ;
+    small.setParam(dt);
+    big.setParam(dt);
+    [K,M] = el.assemble(model.geometry);
 
-    front = 3 * find(mesh.nodes(2,:) == 0) - 1;
+    smallNodes = 1:408;%find(abs(mesh.nodes(1,:)) <= 7);
+    bigNodes = [151:204,355:548];%find(abs(mesh.nodes(1,:)) >= 6);
 
-    BC = unique([front, left, allZ]);
+    smallIdx = node2ind(meshSize,[1,2,3],smallNodes);
+    bigIdx = node2ind(meshSize,[1,2,3],bigNodes);
 
-    attach = unique(BC);
-%     attach = ConstraintData();
-%     attach.nodes = unique(BC);
-%     attach.values = zeros(size(attach.nodes));
-end
+    small.K = K(smallIdx,smallIdx);
+    small.M = M(smallIdx,smallIdx);
 
-function q = Force(mesh)
-    q = zeros(3 * size(mesh.nodes,2),1);
-    q_ind = find(mesh.nodes(1,:) == 9);
-    q_edge = 3 * find(mesh.nodes(2,:) == 0 | mesh.nodes(2,:) == 9) - 2;
-    q(3*q_ind - 2) = -5e-4; % Примерно 0.5 тонн-сил
-    q(q_edge) = q(q_edge) / 2;
-end
+    big.K = K(bigIdx,bigIdx);
+    big.M = M(bigIdx,bigIdx);
 
-function vonMises = VonMisesStress(el, mesh, U)
-        n = size(mesh.nodes,2);
-        m = size(mesh.hexas,2);
+    Move = find(abs(mesh.nodes(1,:) + mesh.nodes(2,:)) + abs(mesh.nodes(1,:) - mesh.nodes(2,:)) == 14);
+    Force = find(abs(mesh.nodes(1,:) + mesh.nodes(2,:)) + abs(mesh.nodes(1,:) - mesh.nodes(2,:)) == 12);
 
-        stress = zeros(6,n);
+    smallMove = node2ind(meshSize,[1,2,3],find(ismember(smallNodes,Move)));
+    bigMove = node2ind(meshSize,[1,2,3],find(ismember(bigNodes,Move)));
 
-        [~, VE] = mesh.volume;
-        weight = zeros(1,n);
-        for i=1:m
-            nodes = mesh.hexas(:,i)';
+    smallForce = node2ind(meshSize,[1,2,3],find(ismember(smallNodes,Force)));
+    bigForce = node2ind(meshSize,[1,2,3],find(ismember(bigNodes,Force)));
 
-            weight(nodes) = weight(nodes) + VE(i);
+    bigLeft = node2ind(meshSize,[1,2,3],find(ismember(bigNodes,left)));
 
-            stressEl = el.elasticity * el.computeGradient(mesh.points(i)) * U(NodesSub2ind(nodes));
+    bigBottom = node2ind(meshSize,2,find(ismember(bigNodes,bottom)));
+    smallBottom = node2ind(meshSize,2,find(ismember(smallNodes,bottom)));
 
-            stress(:,nodes) = stress(:,nodes) + stressEl(1:6) * VE(i);
-        end
-        stress = stress ./ weight;
-    vonMises = sqrt(0.5 * ((stress(1,:) - stress(2,:)).^2 + (stress(2,:) - stress(3,:)).^2 + (stress(3,:) - stress(1,:)).^2 + 6 * (stress(4,:).^2 + stress(5,:).^2 + stress(6,:).^2)))';
-end
+    small.constrain(smallBottom,smallMove);
+    big.constrain([bigBottom;bigLeft],[]);
 
-function ind = NodesSub2ind(sub)
-    ind = 3 * repelem(sub,1,3) - repmat([2,1,0],1,numel(sub));
-end
+    # for k = 1:10
+    big.t = 0;
+    A0 = zeros(size(big.K,1),1);
+    U0 = zeros(size(A0));
+    V0 = zeros(size(A0));
+    Bstate = big.IC(U0,V0,A0);
 
-function ret = getU(U, nodes)
-    ind = 3 * repelem(nodes, 3, 1) - repmat([2;1;0],8,1);
-    ret = U(ind);
+    A0 = zeros(size(small.K,1),1);
+    U0 = zeros(size(A0));
+    V0 = zeros(size(A0));
+    Sstate = small.IC(U0,V0,A0);
+
+    Bforce = zeros(size(big.K,1),1);
+    Sforce = zeros(size(small.K,1),1);
+    U = zeros(numel(model.load),13);
+    j = 1;
+    dt = T/4;
+    t = dt * (1:50);
+    # tic
+    # for i = 1:count
+    #     mod = -sin(2 * pi * omega * big.t);
+    #     Bforce = mod * model.load(bigIdx);
+    #     Bstate = big.step(Bstate,Bforce);
+    #
+    #     Sforce(smallMove) = Bstate(bigMove,1);
+    #     if any(Sforce)
+    #         Sstate = small.step(Sstate,Sforce);
+    #     end
+    #     # any(Sstate(smallMove,1) - Bstate(bigMove,1))
+    #     Bstate(bigForce,1) = Sstate(smallForce,1);
+    #
+    #     if small.t >= t(j)
+    #         U(bigIdx,j) = Bstate(:,1);
+    #         U(smallIdx,j) = Sstate(:,1);
+    #         t(j) = big.t;
+    #         j +=1;
+    #     end
+    # end
+    # U(bigIdx,j) = Bstate(:,1);
+    # U(smallIdx,j) = Sstate(:,1);
+    # t(j) = big.t;
+    # toc
+    # time(k) = toc;
+    # end
+    # disp(sum(time)/numel(time));
+    h = plotMesh(mesh);
+    axis off
+    clim([0,40]);
+    # clabel("MPa");
+    set(h,'edgecolor','none');
+    # for i = 1:size(U,2)
+    #     title(sprintf('%.2fT',t(i)/T))
+    #     R = StaticResult(mesh,el,U(:,i));
+    #     plotSolution(R.mesh,R.vonMisesStress,R.displacement, 'Scale', 100, 'PlotHandle', h);
+    #     filename = sprintf('mixed%d.png',i);
+    #     print(filename);
+    #     drawnow;
+    #     # pause(0.3);
+    # end
+    # for i = 1:size(U,2)
+    #     title(sprintf('%.2fT',t(i)/T))
+    #     R = StaticResult(mesh,el,U1(:,i));
+    #     plotSolution(R.mesh,R.vonMisesStress,R.displacement, 'Scale', 100, 'PlotHandle', h);
+    #     filename = sprintf('expl%d.png',i);
+    #     print(filename);
+    #     drawnow;
+    #     # pause(0.3);
+    # end
+    for i = 1:size(U,2)
+        title(sprintf('%.2fT',t(i)/T))
+        R = StaticResult(mesh,el,U2(:,i));
+        plotSolution(R.mesh,R.vonMisesStress,R.displacement, 'Scale', 100, 'PlotHandle', h);
+        # filename = sprintf('impl%d.png',i);
+        # print(filename);
+        drawnow;
+        # pause(0.3);
+    end
+
+    # figure
+    #
+    # xlim([0,185]);
+    # ylim([0,35]);
+    # xlabel('deg');
+    # ylabel('MPa');
+    #
+    # for i = 1:size(U,2)
+    #
+    #     R = StaticResult(mesh,el,U(:,i));
+    #     R1 = StaticResult(mesh,el,U1(:,i));
+    #     R2 = StaticResult(mesh,el,U2(:,i));
+    #     filename = sprintf('circle%d.png',i);
+    #     plot((24:-1:0)*180/24,R2.vonMisesStress(1:25));
+    #     title(sprintf('%.2fT',t(i)/T))
+    #     legend('mix','exp','imp')
+    #     hold off
+    #     drawnow;
+    #     print(filename);
+    #     cla
+
+        # pause(0.3);
+    # end
+    # R = StaticResult(mesh,el,U);
 end

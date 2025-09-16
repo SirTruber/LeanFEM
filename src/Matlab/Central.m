@@ -14,7 +14,7 @@ classdef Central < handle
     methods
         function UU = IC(this,U0,V0,A0)
             U_prev = U0 - this.time_step * V0 + 0.5 * this.time_step^2 * A0;
-            UU = [U_prev,U0];
+            UU = [U0,U_prev];
         end
 
         function setParam(this,dt)
@@ -32,7 +32,7 @@ classdef Central < handle
 
         function constrain(this, fixed, moved)
             this.fixed = fixed;
-            toZero = [fixed,moved];
+            toZero = [fixed;moved];
 
             this.K(toZero,:) = 0;
             this.K(:,fixed) = 0;
@@ -44,9 +44,8 @@ classdef Central < handle
         end
 
         function nextUU = step(this, UU, force)
-            U_prev = UU(:,1);
-            U = UU(:,2);
-
+            U_prev = UU(:,2);
+            U = UU(:,1);
 
             q_eff = force + this.M * ( this.coeffs(3) * U - this.coeffs(1) * U_prev) - this.K * U ;
             q_eff(this.fixed) = 0;
@@ -58,7 +57,7 @@ classdef Central < handle
             this.count += 1;
             this.t = this.time_step * this.count;
 
-            nextUU = [U,U_next];
+            nextUU = [U_next,U];
         end
     end
 end

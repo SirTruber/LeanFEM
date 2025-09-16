@@ -21,7 +21,7 @@ function errorFromSscanf(index, line, spec)
 end
 
 %%
-%!test #1.Корректные целые числа
+%test #1.Корректные целые числа
 %! res = parseLine('1 2 3',3,'%d');
 %! assert(res,[1 2 3]);
 %!

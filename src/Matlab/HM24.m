@@ -63,7 +63,8 @@ classdef HM24 < handle
             edges = points(:,edges(:,2)) - points(:,edges(:,1));
             len = sqrt(sum(edges.^2));
 
-            h = this.param * min(nonzeros(len));
+            # h = this.param * min(nonzeros(len));
+            h = 1;
 
             imaginary = [ h  h  h  0;
                           h  0  0  h;

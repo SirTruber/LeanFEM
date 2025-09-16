@@ -9,9 +9,11 @@ classdef Newmark < handle
         count = 0
         t = 0       % Текущее время             (Число)
         fixed      % Данные закрепления        (ConstraintData)
+        moved
         % Матрицы системы
         M           % Матрица масс              (sparse)
         K           % Матрица жесткости         (sparse)
+        K_moved
     end
     methods
         function UVA = IC(this,U0,V0,A0)
@@ -42,18 +44,25 @@ classdef Newmark < handle
 
         function constrain(this, fixed, moved)
             this.fixed = fixed;
-            toZero = [fixed,moved];
+            this.moved = moved;
+            toZero = [fixed;moved];
+
+            this.K_moved = this.K(:,moved);
 
             this.K(toZero,:) = 0;
+            # this.K(:,toZero) = 0;
             this.K(:,fixed) = 0;
             this.K(sub2ind(size(this.K),toZero,toZero)) = 1;
 
             this.M(toZero,:) = 0;
             this.M(:,fixed) = 0;
-            this.M(sub2ind(size(this.K),toZero,toZero)) = 1;
+            # this.K(:,toZero) = 0;
 
-            this.K = chol(this.K + this.coeffs(1) * this.M);
-%             this.K = this.K + this.coeffs(1) * this.M;
+            # this.M(:,toZero) = 0;
+            # this.M(sub2ind(size(this.M),toZero,toZero)) = 1;
+
+            # this.K = chol(this.K + this.coeffs(1) * this.M);
+            this.K = this.K + this.coeffs(1) * this.M;
         end
 
         function nextUVA = step(this, UVA, force)
@@ -62,12 +71,12 @@ classdef Newmark < handle
             A_prev = UVA(:,3);
 
             q_eff = force + this.M * (this.coeffs(1) * U_prev + this.coeffs(3) * V_prev + this.coeffs(4) * A_prev);
+            # q_eff -= sum(this.K_moved * force(this.moved),2);
+            # q_eff(this.moved) = force(this.moved);
             q_eff(this.fixed) = 0;
-%             max(q_eff)
 
-            U = this.K\(this.K'\q_eff);
+            U = this.K\q_eff;
 
-%             U = this.K\q_eff;
             A = this.coeffs(1) * (U - U_prev) - this.coeffs(3) * V_prev - this.coeffs(4) * A_prev;
             V = V_prev + this.coeffs(7) * A_prev + this.coeffs(8) * A;
 

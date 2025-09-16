@@ -44,9 +44,9 @@ function h = plotSolution(varargin)
         return
     end
     if ~isempty(params.ColorMapData)
-        colormap cool;
+        colormap turbo;
         colorbar;
-        set(h,'facecolor','interp');
+        # set(h,'facecolor','interp');
         set(h, 'facevertexcdata', params.ColorMapData);
     end
     if ~isempty(params.Displacement)

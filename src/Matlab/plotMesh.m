@@ -41,11 +41,14 @@ function h = plotMesh(varargin)
 end
 
 function drawNodes(mesh,patchHandle,params,scale)
+    textBaxe = mesh.nodes;
     normals = getNormals(patchHandle,'vertexnormals');
-    textPosition = mesh.nodes + scale * normals';
+
+    textPosition = textBase + scale * normals';
     x = textPosition(1,:);
     y = textPosition(2,:);
     z = textPosition(3,:);
+
     labels = arrayfun(@(i) sprintf('N%d',i),1:size(mesh.nodes,2), 'UniformOutput', false);
     text(x,y,z,labels,'color',params.NodeLabelColor, 'fontsize',params.FontSize,'horizontalalignment','center');
 end

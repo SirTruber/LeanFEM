@@ -22,7 +22,7 @@ function result = evaluateStrainAndStress(result)
         stressEl = result.finiteElement.elasticity * strainEl;
         strainStressEl = VE(i) * [strainEl(1:6,:);stressEl(1:6,:)];
 
-        strainStress(:,nodes,:) += strainStressEl;
+        strainStress(:,nodes,:) += reshape(repmat(strainStressEl,1,8,1),12,8,[]);
         weight(nodes) += VE(i);
     end
 
