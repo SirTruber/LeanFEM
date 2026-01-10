@@ -1,8 +1,0 @@
-Name: FEMbrium
-Version: 1.0.0
-Date: 2025-06-11
-Author: SirTruber
-Description: Метод конечных элементов
-Depends: octave (>= 6.4.0)
-License: MIT
-Url: https://github.com/SirTruber/FEMbrium
