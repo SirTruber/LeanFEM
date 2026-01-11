@@ -21,7 +21,7 @@
 
 1. Клонируйте репозиторий:
 ```bash
-git clone https://github.com/yourusername/LeanFEM.git
+git clone https://github.com/SirTruber/LeanFEM.git
 cd LeanFEM
 ```
 2. Добавьте проект в путь поиска: запустите src/setup.m
