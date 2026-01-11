@@ -8,7 +8,7 @@ classdef C3D8M < C3D8
         end
 
         function K = stiffness(obj,nodeCoords)
-            [grad,gamma] = obj.computeGradient([0,0,0],nodeCoords); % Вычисляем градиенты в любой точке (они постоянны во всём элементе)
+            [grad,gamma] = obj.computeGradient([0;0;0],nodeCoords); % Вычисляем градиенты в любой точке (они постоянны во всём элементе)
             
             B = obj.gradMatrix(grad); % Вычисляем градиентную матрицу
             K = (B' * obj.elasticity * B  + obj.material.secondLame * kron(gamma'*gamma,eye(obj.numDIM))) * obj.volume(nodeCoords); % Интегрируем по объему, добавляем жёсткость в направлении hourglass мод

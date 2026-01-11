@@ -12,22 +12,29 @@ classdef C2D4 < Elasticity2D
         end
 
         function N = shapeFunction(obj,xi) 
-            %  4____3
-            %  |    |
-            %  |    |
-            %  1____2
-            % Ni = 0.25 * (1+xi_i*xi)*(1+eta_i*eta)
+            % 3____4         3____2
+            % |    |   map   |    |
+            % |    |   -->   |    |
+            % 1____2         4____1
+            % 
             
-            m = 1 - xi; % [1 - xi(1), 1 - xi(2)]
-            p = 1 + xi; % [1 + xi(1), 1 + xi(2)]
+            map = [2;4;3;1];
+            L = 0.5*(1 + [-xi;xi]);
 
-            N = 0.25 * [m(1)*m(2);p(1)*m(2);p(1)*p(2);m(1)*p(2)];
+            N = kron(L([2;4]),L([1;3]));
+            N = N(map,:);
         end
 
         function dN = shapeGradient(obj,xi)
-            m = 1 - xi; % [1 - xi(1), 1 - xi(2)]
-            p = 1 + xi; % [1 + xi(1), 1 + xi(2)]
-            dN = 0.25 * [[-m(2);m(2);p(2);-p(2)],[-m(1);-p(1);p(1);m(1)]];
+            map = [2;4;3;1];
+            L = 0.5 * (1 + [-xi;xi]);
+            dL = 0.5 * [-1;1];
+
+            dN1 = kron(L([2;4]),dL);
+            dN2 = kron(dL,L([1;3]));
+
+            dN = [dN1,dN2];
+            dN = dN(map,:);
         end
     end
 end
