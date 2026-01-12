@@ -19,7 +19,7 @@ classdef C3D8 < Elasticity3D
             % |/      |/   |/       |/   |/
             % 0___>X  1____2        4____1
             %
-            
+            xi = xi(:);
             map = [2;4;3;1;6;8;7;5];
             L = 0.5*(1 + [-xi;xi]);
 
@@ -28,7 +28,9 @@ classdef C3D8 < Elasticity3D
         end
 
         function dN = shapeGradient(obj,xi)
+            xi = xi(:);
             map = [2;4;3;1;6;8;7;5];
+
             L = 0.5 * (1 + [-xi;xi]);
             dL = 0.5 * [-1;1];
 
