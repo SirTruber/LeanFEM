@@ -52,10 +52,27 @@ classdef Elasticity3D < Element % Класс 3D упругости для гек
             B(6,3:p:n) = grad(1,:); %γzx
         end
         
+        function strain = evaluateStrain(obj,U,nodeCoords)
+            n = numel(obj.gaussP);
+            strain = zeros(6,obj.numNODE);
+            for i = 1 : n 
+                for j = 1 : n
+                    for k = 1 : n
+                        intPoint = obj.gaussP([i;j;k]); % координаты точки интегрирования
+                        [grad,~] = obj.computeGradient(intPoint,nodeCoords); % Вычисляем градиенты и якобиан в точке интегрирования
+                        B = obj.gradMatrix(grad); % Вычисляем градиентную матрицу ( связь деформаций и перемещений)
+                        shape = obj.shapeFunction(intPoint);
+                        strainEl = B * U(:) .* shape';
+                        w = prod(obj.gaussW([i,j,k])); % Вычисляем вес точки интегрирования
+                        strain = strain + w * strainEl; % Добавляем к общему значению, умножив на вес
+                    end
+                end
+            end
+        end
+
         function [strain,stress] = evaluateStrainAndStress(obj, grid, U) % Вычисляет значение деформаций и напряжений в узлах
             numNodes = grid.numNodes();  % Число узлов
             numEl = grid.numElements();  % Число ячеек
-            n = numel(obj.gaussP);
 
             strain = zeros(6,numNodes);  % Значения деформаций в узлах
             weight = zeros(1,numNodes);
@@ -65,19 +82,7 @@ classdef Elasticity3D < Element % Класс 3D упругости для гек
                 volume = obj.volume(points); 
                 weight(nodes) = weight(nodes) + volume;
                 Ue = U(:,nodes); % Достаём перемещения узлов ячейки
-                for i = 1 : n 
-                    for j = 1 : n
-                        for k = 1 : n
-                        intPoint = obj.gaussP([i;j;k]); % координаты точки интегрирования
-                        [grad,~] = obj.computeGradient(intPoint,points); % Вычисляем градиенты и якобиан в точке интегрирования
-                        B = obj.gradMatrix(grad); % Вычисляем градиентную матрицу ( связь деформаций и перемещений)
-                        shape = obj.shapeFunction(intPoint);
-                        strainEl = B * Ue(:) .* shape';
-                        w = volume * prod(obj.gaussW([i,j,k])); % Вычисляем вес точки интегрирования
-                        strain(:,nodes) = strain(:,nodes) + w * strainEl; % Добавляем к общему значению, умножив на вес
-                        end
-                    end
-                end
+                strain(:,nodes) = strain(:,nodes) + volume * obj.evaluateStrain(Ue,points);
             end
             strain = strain./weight; % Берем средне взвешенное, где вес пропорционален объёму ячейки s = sum(si*wi/sum(wi))
             stress = 1e5 * obj.elasticity * strain; % Возвращаем напряжения в МПа

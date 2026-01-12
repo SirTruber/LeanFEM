@@ -3,8 +3,10 @@ function [K,M] = assemble(fe,grid)
     n = grid.numElements();
     m = fe.numDIM * grid.numNodes();
 
-    ij = DIM * repelem(grid.elements(1:n),DIM,1) - repmat(int32(DIM-1:-1:0)',fe.numNODE, grid.numElements); % Принимаем допущение, что узлы ячеек совпадают с узлами конечных элементов. 
-    [i,j] = ndgrid(1:fe.numDOF, 1:fe.numDOF);                                                               % Для ажурных и элементов с дополнительными узлами нужно проводить дополнительное отображение
+    elements = grid.elements(1:n);
+    ij = DIM * kron(elements,ones(DIM,1,'int32')); % Принимаем допущение, что узлы ячеек совпадают с узлами конечных элементов. 
+    ij = ij - int32(kron(ones(size(elements)),(DIM-1:-1:0)'));
+    [i,j] = ndgrid(1:fe.numDOF, 1:fe.numDOF); % Для ажурных и элементов с дополнительными узлами нужно проводить дополнительное отображение
     i_glob = ij(i(:),:);
     j_glob = ij(j(:),:);
     stiffness = arrayfun(@(i) fe.stiffness(grid.points(i)),1:n,'UniformOutput',false); % Вычисляем матрицы жёсткости сразу для всех элементов
