@@ -1,6 +1,6 @@
 function beamStretch
 run('../../../src/setup.m'); % Добавить пути к src
-grid = loadFrom('../brus.4ekm'); % Загрузка сетки из файла
+grid = loadFrom('brus.4ekm'); % Загрузка сетки из файла
 P = 1e-3; % Задание внешнего давления: 100 МПа
 bc = Boundary(grid); % Задание граничных условий
 force = ExForce(grid,P); % Задание правой части
@@ -8,7 +8,7 @@ force = ExForce(grid,P); % Задание правой части
 steel = Steel(); % Тип материала
 %steel = Material('steel',7.8,2.1,0.4999); % Практически несжимаемый материал
 
-feP = C3D8(steel); % Тип конечного элемента - полилинейный
+feP = C3D8(steel,2); % Тип конечного элемента - полилинейный
 feM = C3D8M(steel); % Тип конечного элемента - моментный
 
 UP = solve(grid,bc,force,feP); 
@@ -17,7 +17,7 @@ UM = solve(grid,bc,force,feM);
 volumetricLocking(grid,UM,UP,steel,P);
 alongX(grid,UM,UP,steel,P);
 
-%[~,stress] = feP.evaluateStrainAndStress(grid,UP); % Напряжения однородные. Возмущения только рядом с заделкой
+[~,stress] = feP.evaluateStrainAndStress(grid,UP); % Напряжения однородные. Возмущения только рядом с заделкой
 %vM = feP.vonMises(stress); % Вычисление эквивалентных напряжений Мизеса
 
 %vis = Visualizer(grid); % Посмотреть сетку

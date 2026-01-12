@@ -55,37 +55,32 @@ classdef Elasticity3D < Element % Класс 3D упругости для гек
         function [strain,stress] = evaluateStrainAndStress(obj, grid, U) % Вычисляет значение деформаций и напряжений в узлах
             numNodes = grid.numNodes();  % Число узлов
             numEl = grid.numElements();  % Число ячеек
+            n = numel(obj.gaussP);
 
             strain = zeros(6,numNodes);  % Значения деформаций в узлах
-            stress = zeros(6,numNodes);  % Значения напряжений в узлах
-
-            intPoint = [ 1,-1,-1;...
-                 1, 1,-1;...
-                -1, 1,-1;...
-                -1,-1,-1;...
-                 1,-1, 1;...
-                 1, 1, 1;...
-                -1, 1, 1;...
-                -1,-1, 1]'; % Локальные координаты, в которых вычисляются производные
             weight = zeros(1,numNodes);
-            for i = 1:numEl % Для каждой ячейки:
-                nodes = grid.elements(i); % Достаём номера узлов элемента
-                points = grid.points(i); % Достаём координаты узлов элемента
+            for p = 1:numEl % Для каждой ячейки:
+                nodes = grid.elements(p); % Достаём номера узлов элемента
+                points = grid.points(p); % Достаём координаты узлов элемента
                 volume = obj.volume(points); 
                 weight(nodes) = weight(nodes) + volume;
                 Ue = U(:,nodes); % Достаём перемещения узлов ячейки
-                for j = 1:numel(nodes) % Для каждого узла в ячейке:
-                    grad = obj.computeGradient(intPoint(:,j),points); % Вычисляем производные в локальных координатах
-                    B = obj.gradMatrix(grad); % Вычисляем градиентную матрицу                     
-                    strainEl = B * Ue(:); % Вычисляем деформации в этой точке
-                    stressEl = obj.elasticity * strainEl; % Вычисляем производные в этой точке
-                    strain(:,nodes(j)) = strain(:,nodes(j)) + volume * strainEl(1:6); % Добавляем деформации к узловым значениям, предварительно умножив на вес
-            stress(:,nodes(j)) = stress(:,nodes(j)) + volume * stressEl(1:6); % Добавляем напряжения к узловым значениям, предварительно умножив на вес
+                for i = 1 : n 
+                    for j = 1 : n
+                        for k = 1 : n
+                        intPoint = obj.gaussP([i;j;k]); % координаты точки интегрирования
+                        [grad,~] = obj.computeGradient(intPoint,points); % Вычисляем градиенты и якобиан в точке интегрирования
+                        B = obj.gradMatrix(grad); % Вычисляем градиентную матрицу ( связь деформаций и перемещений)
+                        shape = obj.shapeFunction(intPoint);
+                        strainEl = B * Ue(:) .* shape';
+                        w = volume * prod(obj.gaussW([i,j,k])); % Вычисляем вес точки интегрирования
+                        strain(:,nodes) = strain(:,nodes) + w * strainEl; % Добавляем к общему значению, умножив на вес
+                        end
+                    end
                 end
             end
-            strain = strain./weight; % Берем средне взвешенное, где вес пропорционален ...
-            stress = stress./weight; % объёму ячейки s = sum(si*wi/sum(wi))
-            stress = 1e5 * stress; % Возвращаем напряжения в МПа
+            strain = strain./weight; % Берем средне взвешенное, где вес пропорционален объёму ячейки s = sum(si*wi/sum(wi))
+            stress = 1e5 * obj.elasticity * strain; % Возвращаем напряжения в МПа
         end
 
         function vM = vonMises(obj,stress) % Вычисляет эквивалентное напряжение Фон Мизеса

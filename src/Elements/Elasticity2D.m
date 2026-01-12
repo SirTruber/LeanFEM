@@ -69,38 +69,36 @@ classdef Elasticity2D < Element
         function [strain,stress] = evaluateStrainAndStress(obj, grid, U) % Вычисляет значение деформаций и напряжений в узлах
             numNodes = grid.numNodes();  % Число узлов
             numEl = grid.numElements();  % Число ячеек
+            n = numel(obj.gaussP);
 
             strain = zeros(6,numNodes);  % Значения деформаций в узлах
             stress = zeros(6,numNodes);  % Значения напряжений в узлах
-
-            intPoint = [ -1,-1;...
-                          1,-1;...
-                          1, 1;...
-                         -1, 1]'; % Локальные координаты, в которых вычисляются производные
             weight = zeros(1,numNodes);
-            for i = 1:numEl % Для каждой ячейки:
-                nodes = grid.elements(i); % Достаём номера узлов элемента
-                points = grid.points(i); % Достаём координаты узлов элемента
+            for p = 1:numEl % Для каждой ячейки:
+                nodes = grid.elements(p); % Достаём номера узлов элемента
+                points = grid.points(p); % Достаём координаты узлов элемента
                 volume = obj.volume(points); 
                 weight(nodes) = weight(nodes) + volume;
                 Ue = U(:,nodes); % Достаём перемещения узлов ячейки
-                for j = 1:numel(nodes) % Для каждого узла в ячейке:
-                    grad = obj.computeGradient(intPoint(:,j),points); % Вычисляем производные в локальных координатах
-                    B = obj.gradMatrix(grad); % Вычисляем градиентную матрицу                     
-                    strainEl = B * Ue(:); % Вычисляем деформации в этой точке
-                    stressEl = obj.elasticity * strainEl; % Вычисляем производные в этой точке
-                    strain([1,2,4],nodes(j)) = strain([1,2,4],nodes(j)) + volume * strainEl; % Добавляем деформации к узловым значениям, предварительно умножив на вес
-                    stress([1,2,4],nodes(j)) = stress([1,2,4],nodes(j)) + volume * stressEl; % Добавляем напряжения к узловым значениям, предварительно умножив на вес
+                for i = 1 : n 
+                    for j = 1 : n
+                        intPoint = obj.gaussP([i;j]); % координаты точки интегрирования
+                        [grad,~] = obj.computeGradient(intPoint,points); % Вычисляем градиенты и якобиан в точке интегрирования
+                        B = obj.gradMatrix(grad); % Вычисляем градиентную матрицу ( связь деформаций и перемещений)
+                        shape = obj.shapeFunction(intPoint);
+                        strainEl = B * Ue(:) .* shape';
+                        w = volume * prod(obj.gaussW([i,j])); % Вычисляем вес точки интегрирования
+                        strain([1,2,4],nodes) = strain([1,2,4],nodes) + w * strainEl; % Добавляем к общему значению, умножив на вес
+                    end
                 end
             end
+            strain = strain./weight; % Берем средне взвешенное, где вес пропорционален объёму ячейки s = sum(si*wi/sum(wi))
+            stress([1,2,4],:) = 1e5 * obj.elasticity * strain([1,2,4],:); % Возвращаем напряжения в МПа
             if obj.planeStrain
                 stress(3,:) = obj.material.poissonRatio * (stress(1,:) + stress(2,:)); % Напряжение вдоль бесконечной оси возникает из-за эффекта Пуассона
             else
                 strain(3,:) = obj.material.poissonRatio/(obj.material.poissonRatio -1 ) * (strain(1,:) + strain(2,:)); %Деформация для тонкой пластины по толщине в силу эффекта Пуассона
             end
-            strain = strain./weight; % Берем средне взвешенное, где вес пропорционален ...
-            stress = stress./weight; % объёму ячейки s = sum(si*wi/sum(wi))
-            stress = 1e5 * stress; % Возвращаем напряжения в МПа
         end
 
         function vM = vonMises(obj,stress) % Вычисляет эквивалентное напряжение Фон Мизеса
