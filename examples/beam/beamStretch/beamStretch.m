@@ -20,10 +20,10 @@ alongX(grid,UM,UP,steel,P);
 [~,stress] = feP.evaluateStrainAndStress(grid,UP); % Напряжения однородные. Возмущения только рядом с заделкой
 %vM = feP.vonMises(stress); % Вычисление эквивалентных напряжений Мизеса
 
-%vis = Visualizer(grid); % Посмотреть сетку
+vis = Visualizer(grid); % Посмотреть сетку
 %vis.showForce(force,100); % Посмотреть силы
 %vis.showDisplacements(UP,100); % Посмотреть перемещения
-%vis.showField(stress(1,:)) % Посмотреть напряжение SXX
+vis.showField(stress(1,:)) % Посмотреть напряжение SXX
 %vis.showField(vM) % Посмотреть напряжение VON
 end
 

@@ -11,13 +11,13 @@ classdef (Abstract) AbstractProblem < handle
     end
     methods (Abstract)
         % Возвращает матрицу упругости D [strainSize x strainSize]
-        D = elasticityMatrix(obj)
+        function D = elasticityMatrix(obj) end
 
         % Возвращает матрицу B [strainSize x (dofPerNode*numNodes)]
-        B = strainDisplacementMatrix(obj, grad, N, nodeCoords)
+        function B = strainDisplacementMatrix(obj, grad, N, nodeCoords) end
 
         % Вычисляет объём элемента (интеграл от detJ по параметрической области)
-        vol = volumeElement(obj, nodeCoords)
+        function vol = volumeElement(obj, nodeCoords) end
     end
 
     methods

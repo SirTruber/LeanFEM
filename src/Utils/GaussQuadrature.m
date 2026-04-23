@@ -45,3 +45,19 @@ classdef GaussQuadrature < handle
         end
     end
 end
+
+function [x,w] = gausspoints(nquad)
+    switch nquad
+        case 1
+            x = 0;
+            w = 2;
+        case 2
+            x = [-1/sqrt(3); 1/sqrt(3)];
+            w = [1; 1];
+        case 3
+            x = [-sqrt(3/5); 0; sqrt(3/5)];
+            w = [5/9; 8/9; 5/9];
+    end
+    x = x(:);
+    w = w(:);
+end

@@ -12,8 +12,8 @@ classdef (Abstract) AbstractElement < handle
         quadrature % объект GaussQuadrature
     end
     methods (Abstract)
-        N = shapeFunction(obj,xi)
-        dN = shapeGradient(obj,xi)
+        function N = shapeFunction(obj,xi) end
+        function dN = shapeGradient(obj,xi) end
     end
     methods
         function J = jacobian(obj,xi,nodeCoords)

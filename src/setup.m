@@ -14,10 +14,8 @@ for i =1:length(srcDir)
     if exist(dirPath,'dir')
         addpath(dirPath)
         %fprintf('Add path: %s\n', dirPath); %Debug only
-        debug
     else
         %warning('No such dir: %s\n', dirPath);
     end
 end
-savepath;
 end
