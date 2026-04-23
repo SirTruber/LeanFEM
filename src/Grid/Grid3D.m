@@ -25,7 +25,7 @@ classdef Grid3D < GridData
              2 6 7 3;...  % Грань 5 (правая)
              1 4 8 5];    % Грань 6 (левая)
 
-            facet = reshape(obj.hexas(a',:),4,[]); %Собираем все грани гексаэдров
+            facet = reshape(obj.hexas(a',:),size(a,2),[]); %Собираем все грани гексаэдров
             quads_to_hexas = repelem(1:obj.numElements(),6)';
 
             [~,ida,idx] = unique(sort(facet)',"rows","stable"); %Оставляем только уникальные

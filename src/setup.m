@@ -4,8 +4,10 @@ srcDir = {
     'Elements'
     'Grid'
     'Material'
+    'Problems'
     'Solvers'
-    'Utils'};
+    'Utils'
+    };
 
 for i =1:length(srcDir)
     dirPath = fullfile(projectRoot,srcDir{i});

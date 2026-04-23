@@ -2,30 +2,40 @@
 classdef Static < handle
     properties
         % Состояние системы
-        attach      % Данные закрепления            
+        dofIndices      % Закреплённые степени свободы
+        dofValues       % Заданные перемещения, обычно нулевые
         % Матрицы системы
-        K           % Эффективная матрица жесткости (sparse)
+        K           % Исходная матрица жесткости (sparse)
+        Keff        % Эффективная матрица жесткости (sparse)
         % Результат счёта
         U           % Узловые перемещения           [Nx1]
     end
     methods
-        function obj = Static(constraint, stiffness)
-            obj.attach = constraint;
-
+        function obj = Static(stiffness)
             obj.K = stiffness;
+            obj.U = [];
+        end
 
-            obj.K(constraint,:) = 0; % Применяем граничные условия первого рода u = 0
-            obj.K(:,constraint) = 0;
-            obj.K(sub2ind(size(obj.K),constraint,constraint)) = 1;
+        function applyBC(obj, dofIndices, dofValues)
+            obj.dofIndices = dofIndices(:);
 
-            obj.U = zeros(size(obj.K,1),1); % Инициализируем вектор перемещений нулями
+            if nargin < 3 || isempty(dofValues)
+                obj.dofValues = zeros(numel(dofIndices), 1);
+            else
+                obj.dofValues = dofValues(:);
+            end
+
+            obj.Keff = obj.K;
+            obj.Keff(obj.dofIndices,:) = 0;
+            obj.Keff(:,obj.dofIndices) = 0;
+            obj.Keff(sub2ind(size(obj.K),obj.dofIndices,obj.dofIndices)) = 1;
         end
 
         function step(obj,force)
-            q = force(:);
-            q(obj.attach) = 0; % Применяем граничные условия первого рода u = 0
+            F = force(:) - obj.K(:,obj.dofIndices) * obj.dofValues; % Корректируем правую часть с учётом граничных условий
+            F(obj.dofIndices) = obj.dofValues; % Применяем граничные условия первого рода
 
-            obj.U = obj.K \ q; % Решаем СЛАУ (обычно симметрично)
+            obj.U = obj.Keff \ F; % Решаем СЛАУ (обычно симметрично)
         end
     end
 end
