@@ -6,8 +6,11 @@ classdef C3D8M < C3D8
         param = 1
     end
     methods
-       function obj = C3D8M()
+       function obj = C3D8M(param)
             obj.quadrature = GaussQuadrature(3, 1);
+            if nargin == 1
+                obj.param = param;
+            end
         end
       function gamma = getHourglass(obj, nodeCoords)
             H = [ones(obj.numNodes,1), nodeCoords'];

@@ -30,7 +30,7 @@ classdef AxisymmetricElasticity < AbstractProblem
         end
 
         function vol = volumeElement(obj, nodeCoords)
-            % Объём тела вращения: интеграл 2πr * detJ dξ dη
+            % Объём тела вращения: \int 2πr * detJ dξ dη
             vol = 0;
             for ip = 1:obj.element.quadrature.nPoints
                 xi = obj.element.quadrature.points(:, ip);

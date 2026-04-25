@@ -1,59 +1,69 @@
 % Решатель динамических задач методом центральных разностей(Явный)
-classdef Cross < Static
+classdef Cross < handle
     properties
-        % Состояние системы
-        time_step   % Временной шаг             (Число)
-        t = 0       % Текущее время             (Число)
+    % Состояние системы
+        dofIndices  % Закреплённые степени свободы
+        dofValues   % Заданные перемещения, обычно нулевые
+        dt          % Временной шаг             (Число)
         % Матрицы системы
-        C
         M           % Матрица масс              (sparse)
-        M_ef        % Матрица масс(эффективная) (sparse)
+        K           % Матрица жесткости         (sparse)
+        Keff        % Эффективная матрица жесткости (sparse)
         % Результат счёта
+        U           % Узловые перемещения       [Nx1]
         V           % Узловые скорости          [Nx1]
         A           % Узловые ускорения         [Nx1]
     end
     methods
-        function obj = Cross(dt, constraint, stiffness, mass, V0)
-            obj = obj@Static(constraint,stiffness);
-            obj.time_step = dt;
+        function obj = Cross(dt, stiffness, mass)
+            obj.dt = dt;
+            obj.K = stiffness;
             obj.M = mass;
-            %obj.C = 0.005/dt * mass;
-            n = size(obj.K,1);
+        end
 
-            if isempty(V0)
-                obj.V = zeros(n, 1);
+        function applyBC(obj, dofIndices, dofValues)
+            obj.dofIndices = dofIndices(:);
+
+            if nargin < 3 || isempty(dofValues)
+                obj.dofValues = zeros(numel(dofIndices), 1);
             else
-                obj.V = V0;
-%                 obj.U = obj.U + dt * obj.V;
+                obj.dofValues = dofValues(:);
             end
 
-            obj.U = zeros(n, 1);
-             obj.A = zeros(n, 1);
-%             obj.U_prev = zeros(n, 2);
-%             else
-%            obj.A = obj.M \ loads.'(:);
-%             end
-            % Первый шаг
+            obj.Keff = obj.K;
+            obj.Keff(obj.dofIndices,:) = 0;
+            obj.Keff(:,obj.dofIndices) = 0;
+            obj.Keff(sub2ind(size(obj.K),obj.dofIndices,obj.dofIndices)) = 1;
+        end
+
+        function applyIC(obj, U0, V0, F0)
+            U0(obj.dofIndices) = obj.dofValues;
+            V0(obj.dofIndices) = 0;
+
+            A0 = obj.M \ (F0(:) - obj.K * U0);
+            A0(obj.dofIndices) = 0;
+
+            obj.U = U0;
+            obj.V = V0;
+            obj.A = A0;
+
+            %Первый шаг
             obj.V = obj.V + 0.5 * dt * obj.A;
             obj.U = obj.U + dt * obj.V;
-%             obj.U_prev(:,1) = obj.U_prev(:,1) - dt * obj.V + 0.5 * dt * dt * obj.A;
-
         end
 
         function step(obj,force)
-            obj.t = obj.t + obj.time_step;
+            F = force(:) - obj.Keff * obj.U; % Эффективная правая часть
+            F = F - obj.K(:,obj.dofIndices) * obj.dofValues; % Корректируем правую часть с учётом граничных условий
+            F(obj.dofIndices) = obj.dofValues; % Применяем граничные условия первого рода
 
-%             obj.U_prev = [obj.U, obj.U_prev(:,1)];
-%             disp(size(obj.U_prev));
-%             r = force(:) - obj.K * obj.U_prev(:,1) + obj.time_step * obj.time_step * obj.M * (2 * obj.U_prev(:,1) - obj.U_prev(:,2));
-%             obj.U = obj.M_ef\(obj.M_ef'\r);
-            r = force(:) - obj.K * obj.U; %- obj.C * obj.V;
-            obj.A = obj.M\r;
-            obj.V = obj.V + obj.time_step * obj.A;
-            obj.U = obj.U + obj.time_step * obj.V;
+            obj.A = obj.M\F;
+            obj.V = obj.V + obj.dt * obj.A;
+            obj.U = obj.U + obj.dt * obj.V;
 
-            obj.U(obj.attach,:) = 0;
-            obj.V(obj.attach,:) = 0;
+            obj.U(obj.dofIndices) = obj.dofValues;
+            obj.V(obj.dofIndices) = 0;
+            obj.A(obj.dofIndices) = 0;
         end
     end
 end

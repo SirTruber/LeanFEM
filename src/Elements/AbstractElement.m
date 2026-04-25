@@ -27,5 +27,19 @@ classdef (Abstract) AbstractElement < handle
             grad = J' \ dN';
             detJ = det(J);
         end
+
+        function val = integrate(obj,nodeCoords,func)
+            val = 0;
+
+            for ip = 1:obj.quadrature.nPoints
+                xi = obj.quadrature.points(:, ip);
+                w = obj.quadrature.weights(ip);
+
+                [grad, detJ] = obj.computeGradient(xi, nodeCoords);
+                N = obj.shapeFunction(xi);
+
+                val = val + func(xi,grad,detJ,N) * detJ * w;
+            end
+        end
     end
 end
