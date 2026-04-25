@@ -19,7 +19,8 @@ problem = AxisymmetricElasticity(C2D4M(), mat);
 grid = makeGrid(nr,nz,R,t);
 
 % Сборка глобальной матрицы жёсткости
-K = assemble(problem, grid);
+a = Assembler(problem, grid);
+K = a.stiffness();
 
 [bcDofs,bcVals] = Boundary(grid,R);
 
