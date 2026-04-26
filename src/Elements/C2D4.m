@@ -1,41 +1,38 @@
-classdef C2D4 < Elasticity2D
+% N  [numNodes x 1];
+% dN [numNodes x paramDim];
+% xi [paramDim x 1];
+classdef C2D4 < AbstractElement
     properties
-        numNODE = 4
-        numDOF = 8
+        numNodes = 4
+        paramDim = 2
+        quadrature = GaussQuadrature(2, 2)
     end
     methods
-        function obj = C2D4(material,nquad)
-            if nargin == 1
-                nquad = 2;
-            end
-            obj = obj@Elasticity2D(material,nquad);
-        end
-
-        function N = shapeFunction(obj,xi) 
-            % 3____4         3____2
-            % |    |   map   |    |
-            % |    |   -->   |    |
-            % 1____2         4____1
-            % 
+        function N = shapeFunction(obj,xi)
+            % 3____2
+            % |    |
+            % |    |
+            % 4____1
+            %
             xi = xi(:);
-            map = [2;4;3;1];
-            L = 0.5*(1 + [-xi;xi]);
-
-            N = kron(L([2;4]),L([1;3]));
-            N = N(map,:);
+            x = xi(1); y = xi(2);
+            N = 0.25 * [
+                (1 + x) * (1 - y);
+                (1 + x) * (1 + y);
+                (1 - x) * (1 + y);
+                (1 - x) * (1 - y)
+            ];
         end
 
         function dN = shapeGradient(obj,xi)
             xi = xi(:);
-            map = [2;4;3;1];
-            L = 0.5 * (1 + [-xi;xi]);
-            dL = 0.5 * [-1;1];
-
-            dN1 = kron(L([2;4]),dL);
-            dN2 = kron(dL,L([1;3]));
-
-            dN = [dN1,dN2];
-            dN = dN(map,:);
+            x = xi(1); y = xi(2);
+            dN = 0.25 * [
+                 (1 - y), -(1 + x);
+                 (1 + y),  (1 + x);
+                -(1 + y),  (1 - x);
+                -(1 - y), -(1 - x)
+            ];
         end
     end
 end

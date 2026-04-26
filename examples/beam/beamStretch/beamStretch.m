@@ -5,25 +5,37 @@ P = 1e-3; % Задание внешнего давления: 100 МПа
 bc = Boundary(grid); % Задание граничных условий
 force = ExForce(grid,P); % Задание правой части
 
-steel = Steel(); % Тип материала
-%steel = Material('steel',7.8,2.1,0.4999); % Практически несжимаемый материал
+P = 1e-5; % Задание внешнего момента: 1 Н*м
+bc = Boundary(grid); % Задание граничных условий
+F = ExForce(grid,P); % Задание правой части
 
-feP = C3D8(steel,2); % Тип конечного элемента - полилинейный
-feM = C3D8M(steel); % Тип конечного элемента - моментный
+% Материал (сталь)
+mat = Steel();
 
-UP = solve(grid,bc,force,feP); 
-UM = solve(grid,bc,force,feM);
+% Осесимметричная задача, билинейный элемент
+problem = SolidElasticity(C3D8M(), mat);
 
-volumetricLocking(grid,UM,UP,steel,P);
-alongX(grid,UM,UP,steel,P);
+a = Assembler(problem, grid);
 
-[~,stress] = feP.evaluateStrainAndStress(grid,UP); % Напряжения однородные. Возмущения только рядом с заделкой
+solver = Static(a);
+solver.applyBC(bc);
+solver.step(F);
+U = solver.U;
+
+stress1 = a.nodalStress(reshape(U,3,[]));
+[~,stress2] = problem.evaluateStrainAndStress(grid,reshape(U,3,[])); % Напряжения однородные. Возмущения только рядом с заделкой
+
+max(abs(stress1-stress2))
+# volumetricLocking(grid,UM,UP,steel,P);
+# alongX(grid,UM,UP,steel,P);
+
+# [~,stress] = proble.evaluateStrainAndStress(grid,UP); % Напряжения однородные. Возмущения только рядом с заделкой
 %vM = feP.vonMises(stress); % Вычисление эквивалентных напряжений Мизеса
 
-%vis = Visualizer(grid); % Посмотреть сетку
+vis = Visualizer(grid); % Посмотреть сетку
 %vis.showForce(force,100); % Посмотреть силы
 %vis.showDisplacements(UP,100); % Посмотреть перемещения
-%vis.showField(stress(1,:)) % Посмотреть напряжение SXX
+vis.showField(stress(1,:)) % Посмотреть напряжение SXX
 %vis.showField(vM) % Посмотреть напряжение VON
 end
 

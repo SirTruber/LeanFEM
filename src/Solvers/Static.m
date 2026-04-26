@@ -1,31 +1,44 @@
 % Решатель линейных статических задач
 classdef Static < handle
     properties
+        % Сборщик глобальных матриц
+        assembler
         % Состояние системы
-        attach      % Данные закрепления            
+        dofIndices      % Закреплённые степени свободы
+        dofValues       % Заданные перемещения, обычно нулевые
         % Матрицы системы
-        K           % Эффективная матрица жесткости (sparse)
+        K           % Исходная матрица жесткости (sparse)
+        Keff        % Эффективная матрица жесткости (sparse)
         % Результат счёта
         U           % Узловые перемещения           [Nx1]
     end
     methods
-        function obj = Static(constraint, stiffness)
-            obj.attach = constraint;
+        function obj = Static(assembler)
+            obj.assembler = assembler;
+            obj.K = assembler.stiffness();
+            obj.U = [];
+        end
 
-            obj.K = stiffness;
+        function applyBC(obj, dofIndices, dofValues)
+            obj.dofIndices = dofIndices(:);
 
-            obj.K(constraint,:) = 0; % Применяем граничные условия первого рода u = 0
-            obj.K(:,constraint) = 0;
-            obj.K(sub2ind(size(obj.K),constraint,constraint)) = 1;
+            if nargin < 3 || isempty(dofValues)
+                obj.dofValues = zeros(numel(dofIndices), 1);
+            else
+                obj.dofValues = dofValues(:);
+            end
 
-            obj.U = zeros(size(obj.K,1),1); % Инициализируем вектор перемещений нулями
+            obj.Keff = obj.K;
+            obj.Keff(obj.dofIndices,:) = 0;
+            obj.Keff(:,obj.dofIndices) = 0;
+            obj.Keff(sub2ind(size(obj.K),obj.dofIndices,obj.dofIndices)) = 1;
         end
 
         function step(obj,force)
-            q = force(:);
-            q(obj.attach) = 0; % Применяем граничные условия первого рода u = 0
+            F = force(:) - obj.K(:,obj.dofIndices) * obj.dofValues; % Корректируем правую часть с учётом граничных условий
+            F(obj.dofIndices) = obj.dofValues; % Применяем граничные условия первого рода
 
-            obj.U = obj.K \ q; % Решаем СЛАУ (обычно симметрично)
+            obj.U = obj.Keff \ F; % Решаем СЛАУ (обычно симметрично)
         end
     end
 end

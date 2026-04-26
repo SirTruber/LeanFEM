@@ -1,17 +1,14 @@
-classdef C3D8 < Elasticity3D
+% N  [numNodes x 1];
+% dN [numNodes x paramDim];
+% xi [paramDim x 1];
+classdef C3D8 < AbstractElement
     properties
-        numNODE = 8
-        numDOF = 24
+        numNodes = 8
+        paramDim = 3
+        quadrature = GaussQuadrature(3, 2)
     end
     methods
-        function obj = C3D8(material,nquad)
-            if nargin == 1
-                nquad = 2;
-            end
-            obj = obj@Elasticity3D(material,nquad)
-        end
-
-        function N = shapeFunction(obj,xi) %TODO
+        function N = shapeFunction(obj,xi)
             %           7____8        7____6
             %          /|   /| map   /|   /|
             % ^Z Y    5____6 | -->  8____5 |
@@ -20,26 +17,33 @@ classdef C3D8 < Elasticity3D
             % 0___>X  1____2        4____1
             %
             xi = xi(:);
-            map = [2;4;3;1;6;8;7;5];
-            L = 0.5*(1 + [-xi;xi]);
+            x = xi(1); y = xi(2); z = xi(3);
 
-            N = kron(kron(L([3;6]),L([2;5])),L([1;4]));
-            N = N(map,:);
+            N = 0.125 * [
+                (1+x)*(1-y)*(1-z);
+                (1+x)*(1+y)*(1-z);
+                (1-x)*(1+y)*(1-z);
+                (1-x)*(1-y)*(1-z);
+                (1+x)*(1-y)*(1+z);
+                (1+x)*(1+y)*(1+z);
+                (1-x)*(1+y)*(1+z);
+                (1-x)*(1-y)*(1+z)
+            ];
         end
 
         function dN = shapeGradient(obj,xi)
             xi = xi(:);
-            map = [2;4;3;1;6;8;7;5];
-
-            L = 0.5 * (1 + [-xi;xi]);
-            dL = 0.5 * [-1;1];
-
-            dN1 = kron(kron(L([3;6]),L([2;5])),dL);
-            dN2 = kron(kron(L([3;6]),dL),L([1;4]));
-            dN3 = kron(kron(dL,L([2;5])),L([1;4]));
-
-            dN = [dN1,dN2,dN3];
-            dN = dN(map,:);
+            x = xi(1); y = xi(2); z = xi(3);
+            dN = 0.125 * [
+                 (1-y)*(1-z), -(1+x)*(1-z), -(1+x)*(1-y);
+                 (1+y)*(1-z),  (1+x)*(1-z), -(1+x)*(1+y);
+                -(1+y)*(1-z),  (1-x)*(1-z), -(1-x)*(1+y);
+                -(1-y)*(1-z), -(1-x)*(1-z), -(1-x)*(1-y);
+                 (1-y)*(1+z), -(1+x)*(1+z),  (1+x)*(1-y);
+                 (1+y)*(1+z),  (1+x)*(1+z),  (1+x)*(1+y);
+                -(1+y)*(1+z),  (1-x)*(1+z),  (1-x)*(1+y);
+                -(1-y)*(1+z), -(1-x)*(1+z),  (1-x)*(1-y)
+            ];
         end
     end
 end
