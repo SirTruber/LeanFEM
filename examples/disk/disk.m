@@ -7,27 +7,27 @@ run('../../src/setup.m');
 R = 14.85;        % внешний радиус, см
 t = 1.5;          % толщина, см
 pressure = 1.7e-5;% давление, 1.7 МПа
-nr = 30;          % число элементов по радиусу
-nz = 10;          % число элементов по толщине
+nr = 100;          % число элементов по радиусу
+nz = 40;          % число элементов по толщине
 
 % Материал (сталь)
 mat = Steel();
 
+elem = CAX4();
+
 % Осесимметричная задача, билинейный элемент
-problem = AxisymmetricElasticity(C2D4M(), mat);
+problem = AxisymmetricElasticity(elem, mat);
 
 grid = makeGrid(nr,nz,R,t);
 
-% Сборка глобальной матрицы жёсткости
-a = Assembler(problem, grid);
-K = a.stiffness();
-
-[bcDofs,bcVals] = Boundary(grid,R);
+bc = Boundary(grid,R);
 
 F = force(grid,pressure);
 
-solver = Static(K);
-solver.applyBC(bcDofs, bcVals);
+a = Assembler(problem, grid);
+
+solver = Static(a);
+solver.applyBC(bc);
 solver.step(F);
 U = solver.U;
 
@@ -37,26 +37,25 @@ vis = Visualizer(grid);
 # F_vis = reshape(F,2,[]);
 # F_vis = [F_vis;zeros(1,size(F_vis,2))];
 # vis.showForce(F_vis,-1000);
-vis.showDisplacements(U_vis, 1);
-[~,stress] = problem.evaluateStrainAndStress(grid,reshape(U,2,[]));
-stress = stress * 1e5;
-vis.showField(stress(1,:));
+vis.showDisplacements(U_vis, 100);
+stress = 1e5 * a.nodalStress(reshape(U,2,[]));
+vis.showField(problem.vonMises(stress));
+
+set(vis.patchHandle.mesh, 'EdgeColor','none');
 end
 
-function [bcDofs,bcVals] = Boundary(grid,R)
+function bc = Boundary(grid,R)
     % Граничные условия
-    % 1. Ось симметрии r = 0: u_r = 0 (закрепляем X-степень свободы)
-    % 2. Внешний контур r = R: u_r = 0 и u_z = 0 (закрепляем оба перемещения)
-    axis_nodes = find(abs(grid.nodes(1,:)) < 1e-10);          % r == 0
-    outer_nodes = find(abs(grid.nodes(1,:) - R) < 1e-10);     % r == R
+    % 1. Ось симметрии r = 0: u_r = 0
+    % 2. Внешний контур r = R: u_r = 0 и u_z = 0
+    axis_nodes = find(abs(grid.nodes(1,:)) < 1e-10);
+    outer_nodes = find(abs(grid.nodes(1,:) - R) < 1e-10);
 
-    dofs_axis_u = 2*axis_nodes - 1;        % X-компонента (r) для оси
-    dofs_outer_u = 2*outer_nodes - 1;      % X-компонента для внешней границы
-    dofs_outer_v = 2*outer_nodes;          % Y-компонента (z) для внешней границы
+    dofs_axis_u = 2*axis_nodes - 1;
+    dofs_outer_u = 2*outer_nodes - 1;
+    dofs_outer_v = 2*outer_nodes;
 
-    bcDofs = unique([dofs_axis_u, dofs_outer_u, dofs_outer_v]);
-    bcVals = zeros(size(bcDofs));
-
+    bc = unique([dofs_axis_u, dofs_outer_u, dofs_outer_v]);
 end
 
 function F = force(grid,pressure)

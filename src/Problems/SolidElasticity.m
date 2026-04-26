@@ -30,14 +30,10 @@ classdef SolidElasticity < AbstractProblem
             B(6,1:p:end) = grad(3,:); B(6,3:p:end) = grad(1,:); %γxz
         end
 
-        function vol = volumeElement(obj, nodeCoords)
-            vol = 0;
-            for ip = 1:obj.element.quadrature.nPoints
-                xi = obj.element.quadrature.points(:, ip);
-                w = obj.element.quadrature.weights(ip);
-                detJ = det(obj.jacobian(xi,nodeCoords));
-                vol = vol + detJ * w;
-            end
+        function vm = vonMises(obj, stress)
+            sxx = stress(1,:); syy = stress(2,:); szz = stress(3,:);
+            sxy = stress(4,:); syz = stress(5,:); sxz = stress(6,:);
+            vm = sqrt(0.5*((sxx-syy).^2 + (syy-szz).^2 + (szz-sxx).^2 + 6*(sxy.^2+syz.^2+sxz.^2)));
         end
     end
 end

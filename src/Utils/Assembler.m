@@ -43,7 +43,24 @@ classdef Assembler < handle
 
         # function F = internalForce(obj, U) ... end
         # function F = externalForce(obj, load) ... end
-        # function strain = nodalStrain(obj, U) ... end
+        function strain = nodalStrain(obj, U)
+            numNodes = obj.mesh.numNodes();
+            strainSize = obj.problem.strainSize;
+            strain = zeros(obj.problem.strainSize, numNodes);
+            weight = zeros(1, numNodes);
+
+            for e = 1:obj.mesh.numElements()
+                nodes = obj.mesh.elements(e);
+                nodeCoords = obj.mesh.points(e);
+                Ue = U(:, nodes);
+                w = obj.problem.nodeWeight(nodeCoords);
+                Ve = sum(w);
+                strainIntegral = obj.problem.strainIntergal(nodeCoords, Ue);
+                strain(:, nodes) = strain(:, nodes) + strainIntegral .* (w/Ve);
+                weight(nodes) = weight(nodes) + w;
+            end
+            strain = strain ./ weight;
+        end
 
         function stress = nodalStress(obj, U)
             stress = obj.problem.elasticityMatrix() * obj.nodalStrain(U);

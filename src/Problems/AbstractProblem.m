@@ -15,8 +15,7 @@ classdef (Abstract) AbstractProblem < handle
         % Возвращает матрицу B [strainSize x (dofPerNode*numNodes)]
         function B = strainDisplacementMatrix(obj, grad, N, nodeCoords) end
 
-        % Вычисляет объём элемента (интеграл от detJ по параметрической области)
-        function vol = volumeElement(obj, nodeCoords) end
+        function vm = vonMises(obj, stress) end
     end
 
     methods
@@ -56,39 +55,17 @@ classdef (Abstract) AbstractProblem < handle
             Me = vol * obj.material.density * eye(dofTotal) / dofTotal;
         end
 
-        function [strain, stress] = evaluateStrainAndStress(obj, mesh, U)
-        % Возвращает strain [strainSize × numNodes], stress [strainSize × numNodes]
-
-        numNodes = mesh.numNodes();
-        strain = zeros(obj.strainSize, numNodes);
-        weight = zeros(1, numNodes);
-
-        for e = 1:mesh.numElements()
-            nodes = mesh.elements(e);                     % индексы узлов элемента
-            nodeCoords = mesh.points(e);                  % [physicalDim × NodePerElem]
-            Ue = U(:, nodes);                             % перемещения элемента
-
-            for ip = 1:obj.element.quadrature.nPoints()
-                xi = obj.element.quadrature.points(:, ip);
-                w  = obj.element.quadrature.weights(ip);
-                [grad, detJ] = obj.element.computeGradient(xi, nodeCoords);
-                N = obj.element.shapeFunction(xi);
-                B = obj.strainDisplacementMatrix(grad, N, nodeCoords);
-
-                strain_ip = B * Ue(:);                    % деформации в точке интегрирования
-                for j = 1:length(nodes)
-                    strain(:, nodes(j)) = strain(:, nodes(j)) + ...
-                        N(j) * strain_ip * detJ * w * obj.volumeFactor(nodeCoords);
-                    weight(nodes(j)) = weight(nodes(j)) + ...
-                        N(j) * detJ * w * obj.volumeFactor(nodeCoords);
-                end
-            end
+        function strain = strainIntergal(obj, nodeCoords, Ue)
+            strain = obj.element.integrate(nodeCoords, @(xi,grad,detJ,N) obj.strainDisplacementMatrix(grad, N, nodeCoords) * Ue(:));
         end
 
-        strain = strain ./ weight;
-        D = obj.elasticityMatrix();
-        stress = D * strain;
-    end
+        function vol = volumeElement(obj, nodeCoords)
+            vol = obj.element.integrate(nodeCoords, @(xi, grad, detJ, N) 1);
+        end
+
+        function weight = nodeWeight(obj, nodeCoords)
+            weight = obj.element.integrate(nodeCoords, @(xi, grad, detJ, N) N)';
+        end
         function factor = volumeFactor(obj, nodeCoords)
             % Переопределяется в наследниках (например, толщина для плоского напряжения)
             factor = 1;

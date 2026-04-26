@@ -29,21 +29,9 @@ classdef AxisymmetricElasticity < AbstractProblem
             B(4,1:p:end) = grad(2,:); B(4,2:p:end) = grad(1,:); %γrz
         end
 
-        function vol = volumeElement(obj, nodeCoords)
-            % Объём тела вращения: \int 2πr * detJ dξ dη
-            vol = 0;
-            for ip = 1:obj.element.quadrature.nPoints
-                xi = obj.element.quadrature.points(:, ip);
-                w = obj.element.quadrature.weights(ip);
-                detJ = det(obj.jacobian(xi,nodeCoords));
-                N = obj.element.shapeFunction(xi);
-                r = nodeCoords(1,:) * N;
-                vol = vol + (2 * pi * r) * detJ * w;
-            end
-        end
-
-        function factor = volumeFactor(obj, ~)
-            factor = 1;
+        function vm = vonMises(obj, stress)
+            srr = stress(1,:); szz = stress(2,:); stt = stress(3,:); srz = stress(4,:);
+            vm = sqrt(0.5*((srr-szz).^2 + (szz-stt).^2 + (stt-srr).^2 + 6*srz.^2));
         end
     end
 end

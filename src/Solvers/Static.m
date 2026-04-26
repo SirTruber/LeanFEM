@@ -1,6 +1,8 @@
 % Решатель линейных статических задач
 classdef Static < handle
     properties
+        % Сборщик глобальных матриц
+        assembler
         % Состояние системы
         dofIndices      % Закреплённые степени свободы
         dofValues       % Заданные перемещения, обычно нулевые
@@ -11,8 +13,9 @@ classdef Static < handle
         U           % Узловые перемещения           [Nx1]
     end
     methods
-        function obj = Static(stiffness)
-            obj.K = stiffness;
+        function obj = Static(assembler)
+            obj.assembler = assembler;
+            obj.K = assembler.stiffness();
             obj.U = [];
         end
 

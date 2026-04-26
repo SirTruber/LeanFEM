@@ -13,22 +13,31 @@ dl = 0.5 * pi /na; % Дифференциал дуги
 grid = ringGrid(r,R,na,nr); % Создание сетки на лету
 
 bc = Boundary(grid,na); % Задание граничных условий
-force = ExForce(grid,na,p,P,dl); % Задание правой части
+F = ExForce(grid,na,p,P,dl); % Задание правой части
 
-steel = Steel(); % Тип материала
+mat = Steel(); % Тип материала
 
-fe = C2D4(steel); % Тип конечного элемента - билинейный
+% Осесимметричная задача, билинейный элемент
+problem = AxisymmetricElasticity(C2D4M(), mat);
 
-U = solve(grid,bc,force,fe);
+a = Assembler(problem, grid);
 
-[~,stress] = fe.evaluateStrainAndStress(grid,U); % Напряжения однородные. 
-vM = fe.vonMises(stress); % Вычисление эквивалентных напряжений Мизеса
+solver = Static(a);
+solver.applyBC(bc);
+solver.step(F);
+U = solver.U;
+U = reshape(U,2,[]); % Возвращаем матрицу [Ux;Uy]
+[~,stress1] = problem.evaluateStrainAndStress(grid,U); % Напряжения однородные.
+stress2 = a.nodalStress(U);
+
+max(abs(stress1 - stress2),2)
+# vM = fe.vonMises(stress); % Вычисление эквивалентных напряжений Мизеса
 
 vis = Visualizer(grid); % Посмотреть сетку
 %vis.showForce([force;zeros(1,grid.numNodes)],-100); % Посмотреть силы
 %vis.showDisplacements(UP,100); % Посмотреть перемещения
-%vis.showField(stress(1,:)) % Посмотреть напряжение SXX
-vis.showField(vM) % Посмотреть напряжение VON
+vis.showField(stress2(1,:)) % Посмотреть напряжение SXX
+# vis.showField(vM) % Посмотреть напряжение VON
 end
 
 function force = ExForce(grid,na,p,P,dl)

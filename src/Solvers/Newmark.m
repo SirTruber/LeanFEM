@@ -5,6 +5,8 @@ classdef Newmark < handle
         beta = 0.25 % Параметр устойчивости (0.25 для неявной схемы) >=  0.25 * (0.5 + gamma)^2
     end
     properties
+        % Сборщик глобальных матриц
+        assembler
         % Состояние системы
         dofIndices  % Закреплённые степени свободы
         dofValues   % Заданные перемещения, обычно нулевые
@@ -24,10 +26,11 @@ classdef Newmark < handle
         A_prev      % Узловые ускорения         [Nx1]
     end
     methods
-        function obj = Newmark(dt, stiffness, mass)
+        function obj = Newmark(dt, assembler)
             obj.dt = dt;
-            obj.K = stiffness;
-            obj.M = mass;
+            obj.assembler = assembler;
+            obj.K = assembler.stiffness();
+            obj.M = assembler.mass();
         end
 
         function applyBC(obj, dofIndices, dofValues)

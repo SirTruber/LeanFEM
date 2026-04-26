@@ -1,7 +1,9 @@
 % Решатель динамических задач методом центральных разностей(Явный)
 classdef Cross < handle
     properties
-    % Состояние системы
+        % Сборщик глобальных матриц
+        assembler
+        % Состояние системы
         dofIndices  % Закреплённые степени свободы
         dofValues   % Заданные перемещения, обычно нулевые
         dt          % Временной шаг             (Число)
@@ -15,10 +17,11 @@ classdef Cross < handle
         A           % Узловые ускорения         [Nx1]
     end
     methods
-        function obj = Cross(dt, stiffness, mass)
+        function obj = Cross(dt, assembler)
             obj.dt = dt;
-            obj.K = stiffness;
-            obj.M = mass;
+            obj.assembler = assembler;
+            obj.K = assembler.stiffness();
+            obj.M = assembler.mass();
         end
 
         function applyBC(obj, dofIndices, dofValues)

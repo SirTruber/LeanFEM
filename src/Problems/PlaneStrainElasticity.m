@@ -25,17 +25,11 @@ classdef PlaneStrainElasticity < AbstractProblem
             B(1,1:p:end) = grad(1,:);                           %εxx
             B(2,2:p:end) = grad(2,:);                           %εyy
             B(3,1:p:end) = grad(2,:); B(3,2:p:end) = grad(1,:); %γxy
-
         end
 
-        function vol = volumeElement(obj, nodeCoords)
-            vol = 0;
-            for ip = 1:obj.element.quadrature.nPoints
-                xi = obj.element.quadrature.points(:, ip);
-                w = obj.element.quadrature.weights(ip);
-                detJ = det(obj.jacobian(xi,nodeCoords));
-                vol = vol + detJ * w;
-            end
+        function vm = vonMises(obj, stress)
+            sxx = stress(1,:); syy = stress(2,:); sxy = stress(3,:);
+            vm = sqrt(0.5*((sxx-syy).^2 + sxx.^2 + syy.^2 + 6*sxy.^2));
         end
     end
 end
