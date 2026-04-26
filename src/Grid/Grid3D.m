@@ -4,7 +4,10 @@ classdef Grid3D < GridData
         hexas   % Гексаэдральные элементы, [8xK]
     end
     methods
-        function e = elements(obj,ind) 
+        function e = elements(obj,ind)
+            if nargin == 1
+                ind = 1:obj.numElements();
+            end
             e = obj.hexas(:,ind);
         end
 
@@ -13,6 +16,9 @@ classdef Grid3D < GridData
          end
 
          function p = points(obj,ind)
+             if nargin == 1
+                ind = 1:obj.numNodes();
+            end
             p = obj.nodes(:,obj.hexas(:,ind));
          end
 
