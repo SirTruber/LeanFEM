@@ -8,7 +8,6 @@ F = ExForce(grid,P); % Задание правой части
 
 % Материал (сталь)
 mat = Steel();
-# mat.yieldStress = 2.1e-3;
 
 % Осесимметричная задача, билинейный элемент
 problem = SolidElasticity(C3D8M(), mat);

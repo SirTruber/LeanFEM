@@ -1,33 +1,27 @@
-function beamBend
+function beamBend2
 run('../../../src/setup.m'); % Добавить пути к src
 grid = loadFrom('brus.4ekm'); % Загрузка сетки из файла
 
-P = 1e-5; % Задание внешнего момента: 1 Н*м
+P = 1e-12; % Задание внешнего момента: 1 Н*м
 bc = Boundary(grid); % Задание граничных условий
 F = ExForce(grid,P); % Задание правой части
 
 % Материал (сталь)
 mat = Steel();
-# mat.yieldStress = 2.1e-3;
+mat.yieldStress = 2.1e-1;
 
 % Осесимметричная задача, билинейный элемент
 problem = SolidElasticity(C3D8M(), mat);
 
-a = Assembler(problem, grid);
-
-solver = Static(a);
-solver.applyBC(bc);
-solver.step(F);
-U = solver.U;
-
-[~,stress] = problem.evaluateStrainAndStress(grid,reshape(U,3,[])); % Напряжения однородные. Возмущения только рядом с заделкой
+[U,strainPl,stress] = Plasticity(problem, grid, bc, F);
+# [~,stress] = problem.evaluateStrainAndStress(grid,reshape(U,3,[])); % Напряжения однородные. Возмущения только рядом с заделкой
 
 # vM = feP.vonMises(stress); % Вычисление эквивалентных напряжений Мизеса
 
 vis = Visualizer(grid); % Посмотреть сетку
 %vis.showForce(force,10000); % Посмотреть силы
 %vis.showDisplacements(UP,10); % Посмотреть перемещения
-vis.showField(stress(1,:)) % Посмотреть напряжение SYY
+vis.showField(strainPl(1,:)) % Посмотреть напряжение SYY
 %vis.showField(vM) % Посмотреть напряжение VON
 end
 
