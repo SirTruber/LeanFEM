@@ -1,7 +1,7 @@
 classdef PlaneStrainElasticity < AbstractProblem
     properties
         physicalDim = 2 % x, y
-        dofPerNode = 2
+        dofPerNode = 2  % u, v
         strainSize = 3  % %εxx, εyy, γxy
     end
     methods

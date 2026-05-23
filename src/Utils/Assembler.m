@@ -36,7 +36,7 @@ classdef Assembler < handle
                     numNodes);
 
             mass = arrayfun(@(i) obj.problem.mass(obj.mesh.points(i)), ...
-                1:obj.numElements,'UniformOutput',false); % Вычисляем матрицы масс сразу для всех элементов
+                1:numElements,'UniformOutput',false); % Вычисляем матрицы масс сразу для всех элементов
             mass = cat(3, mass{:}); % Объединяем в 3D-массив
             M = sparse(i_glob(:), j_glob(:),mass(:),totalDOF,totalDOF); % Создаём глобальную матрицу
         end

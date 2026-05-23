@@ -6,7 +6,7 @@ classdef PlaneStressElasticity < PlaneStrainElasticity
     methods
         function obj = PlaneStressElasticity(element, material, thickness)
             obj = obj@PlaneStrainElasticity(element, material);
-            if nargin > 3, obj.thickness = thickness; end
+            if nargin > 2, obj.thickness = thickness; end
         end
 
         function D = elasticityMatrix(obj)
@@ -17,7 +17,7 @@ classdef PlaneStressElasticity < PlaneStrainElasticity
             nuef = nu / (1 - nu);
 
             lambda = Eef * nuef / ((1 + nuef)*(1 - 2*nuef));
-            mu = Eef / (2*(1 + nuef));
+            mu = obj.material.secondLame;
 
             D = blkdiag(...
                 lambda*ones(2) + 2*mu*eye(2), ...

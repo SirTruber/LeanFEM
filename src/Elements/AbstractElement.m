@@ -41,5 +41,22 @@ classdef (Abstract) AbstractElement < handle
                 val = val + func(xi,grad,detJ,N) * detJ * w;
             end
         end
+
+        function val = integrateFromValues(obj,nodeCoords,fVals)
+            val = 0;
+
+            for ip = 1:obj.quadrature.nPoints
+                xi = obj.quadrature.points(:, ip);
+                w = obj.quadrature.weights(ip);
+
+                [~, detJ] = obj.computeGradient(xi, nodeCoords);
+
+                val = val + fVals(:,ip) * detJ * w;
+            end
+        end
+
+        function Ke = computeStiffness(obj, problem, nodeCoords)
+
+        end
     end
 end

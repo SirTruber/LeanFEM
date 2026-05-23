@@ -1,7 +1,7 @@
 classdef SolidElasticity < AbstractProblem
     properties
         physicalDim = 3 % x, y, z
-        dofPerNode = 3
+        dofPerNode = 3  % u, v, w
         strainSize = 6  % εxx, εyy, εzz, γxy, γyz, γxz
     end
     methods

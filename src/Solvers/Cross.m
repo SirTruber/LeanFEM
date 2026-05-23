@@ -51,8 +51,8 @@ classdef Cross < handle
             obj.A = A0;
 
             %Первый шаг
-            obj.V = obj.V + 0.5 * dt * obj.A;
-            obj.U = obj.U + dt * obj.V;
+            obj.V = obj.V + 0.5 * obj.dt * obj.A;
+            obj.U = obj.U + obj.dt * obj.V;
         end
 
         function step(obj,force)
