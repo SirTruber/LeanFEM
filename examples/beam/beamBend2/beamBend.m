@@ -10,24 +10,24 @@ F = ExForce(grid,P); % Задание правой части
 mat = Steel();
 
 % Осесимметричная задача, билинейный элемент
-problem = SolidElasticity(C3D8M(), mat);
+problem = SolidElasticity(C3D8M());
 
-a = Assembler(problem, grid);
+asm = Assembler(problem, grid, mat);
 
-solver = Static(a);
+solver = Static(asm);
 solver.applyBC(bc);
 solver.step(F);
-U = solver.U;
 
-[~,stress] = problem.evaluateStrainAndStress(grid,reshape(U,3,[])); % Напряжения однородные. Возмущения только рядом с заделкой
+U = reshape(solver.U,3,[]);
 
-# vM = feP.vonMises(stress); % Вычисление эквивалентных напряжений Мизеса
+stress = asm.nodalStress(U); % Напряжения однородные. Возмущения только рядом с заделкой
+vM = problem.vonMises(stress); % Вычисление эквивалентных напряжений Мизеса
 
 vis = Visualizer(grid); % Посмотреть сетку
 %vis.showForce(force,10000); % Посмотреть силы
 %vis.showDisplacements(UP,10); % Посмотреть перемещения
-vis.showField(stress(1,:)) % Посмотреть напряжение SYY
-%vis.showField(vM) % Посмотреть напряжение VON
+vis.showField(UnitConverter.pressure_system_to_MPa(stress(1,:))) % Посмотреть напряжение SXX в МПа
+vis.showField(UnitConverter.pressure_system_to_MPa(vM)) % Посмотреть напряжение VON в МПа
 end
 
 function bc = Boundary(grid)
@@ -47,10 +47,4 @@ function force = ExForce(grid,My)
     force(1,B(D)) = force(1,B(D))* 0.5; % а на углах - только четверть
 end
 
-function U = solve(grid,bc,force,fe)
-    K = assemble(fe,grid); % Собираем глобальную матрицу жесткости
-    solver = Static(bc,K); % Инициализируем решатель
-    solver.step(force); % Решаем задачу
-    U = solver.U; % Забираем результат расчёта
-    U = reshape(U,3,[]); % Возвращаем матрицу [Ux;Uy;Uz]
-end
+

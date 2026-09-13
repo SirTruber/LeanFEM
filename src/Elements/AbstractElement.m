@@ -11,7 +11,7 @@ classdef (Abstract) AbstractElement < handle
         paramDim % Размерность параметрического пространства
         quadrature % объект GaussQuadrature
     end
-    methods (Abstract)
+    methods
         function N = shapeFunction(obj,xi) end
         function dN = shapeGradient(obj,xi) end
     end
@@ -42,21 +42,19 @@ classdef (Abstract) AbstractElement < handle
             end
         end
 
-        function val = integrateFromValues(obj,nodeCoords,fVals)
-            val = 0;
-
-            for ip = 1:obj.quadrature.nPoints
-                xi = obj.quadrature.points(:, ip);
-                w = obj.quadrature.weights(ip);
-
-                [~, detJ] = obj.computeGradient(xi, nodeCoords);
-
-                val = val + fVals(:,ip) * detJ * w;
-            end
+        function Ke = computeStiffness(obj, problem, nodeCoords, material)
+            integrand = @(xi, grad, detJ, N) ...
+                obj.stiffnessIntegrand(problem, grad, N, nodeCoords, material);
+            Ke = obj.integrate(nodeCoords, integrand);
         end
-
-        function Ke = computeStiffness(obj, problem, nodeCoords)
-
+        function val = stiffnessIntegrand(obj, problem, grad, N, nodeCoords, material)
+            B = problem.strainDisplacementMatrix(grad, N, nodeCoords);
+            D = problem.elasticityMatrix(material);
+            val = B' * D * B;
+        end
+        function Me = computeMass(obj, problem, nodeCoords, material)
+            integrand = @(xi, grad, detJ, N) material.density * kron(N * N',eye(problem.physicalDim ));
+            Me = obj.integrate(nodeCoords, integrand);
         end
     end
 end

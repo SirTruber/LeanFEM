@@ -1,96 +1,146 @@
-function pipe2
-run('../../src/setup.m');
+function pipe2()
+% LAME_CYLINDER Решение задачи Ламе для толстостенного цилиндра
+%                в осесимметричной постановке.
+% Используются элементы CAX4 (билинейные) и CAX4M (моментная схема).
 
-% Геометрия и материал
-a = 2; b = 10; h = 0.5;
-nr = 8;   % число элементов по радиусу
-nz = 4;   % число элементов по толщине
-p = 1e-4; % 10 МПа
-mat = Steel();
+run('../../src/setup.m'); % Добавить пути к исходникам
 
-grid = makeGrid(nr,nz,a,b,h);
+% --- Параметры геометрии и нагрузки ---
+rInner = 1.0;     % внутренний радиус
+rOuter = 5.0;     % внешний радиус
+L      = 1.0;     % длина цилиндра (высота в осевом направлении)
+pInner = 100e-5;  % внутреннее давление (100 МПа)
+pOuter = 0.0;     % внешнее давление
 
-elem = CAX4();
+% Параметры сетки
+nR = 20;          % число элементов по радиусу
+nZ = 5;           % число элементов по высоте
 
-elem.quadrature = GaussQuadrature(2, 3);
+% --- Материал (сталь) ---
+steel = Steel();
 
-problem = AxisymmetricElasticity(elem, mat);
+% --- Генерация осесимметричной сетки ---
+grid = createAxisymmetricGrid(rInner, rOuter, L, nR, nZ);
 
-bc = Boundary(grid,a,b,h);
+% --- Граничные условия (плоская деформация: u_z = 0 на торцах) ---
+bc = boundaryConditionsAxisymmetric(grid);
 
-F = exForce(grid,p,a);
-asm = Assembler(problem, grid);
+% --- Внешние силы (давление на внутреннюю и внешнюю поверхности) ---
+force = pressureLoadAxisymmetric(grid, rInner, rOuter, pInner, pOuter);
 
-solver = Static(asm);
-solver.applyBC(bc);
-solver.step(F);
-U = solver.U;
+% --- Решение с элементом CAX4 ---
+fprintf('Решение с CAX4...\n');
+fe_standard = CAX4(steel);
+[U_std, stress_std] = solveAxisymmetric(grid, bc, force, fe_standard);
 
-U_vis = reshape(U,2,[]);
-U_vis = [U_vis;zeros(1,size(U_vis,2))];
+% --- Решение с моментной схемой CAX4M ---
+fprintf('Решение с CAX4M...\n');
+fe_moment = CAX4M(steel);
+[U_mom, stress_mom] = solveAxisymmetric(grid, bc, force, fe_moment);
+
+% --- Аналитическое решение для сравнения ---
+% Берём линию узлов вдоль радиуса на середине высоты
+z_mid = L/2;
+tol = 1e-6;
+midNodes = find(abs(grid.nodes(2,:) - z_mid) < tol);
+% Сортируем по возрастанию r
+[~, idx] = sort(grid.nodes(1, midNodes));
+midNodes = midNodes(idx);
+r_vals = grid.nodes(1, midNodes);
+
+% Аналитические напряжения (радиальное и окружное)
+[sigma_r_an, sigma_theta_an, u_r_an] = lame_analytical(r_vals, rInner, rOuter, ...
+    pInner, pOuter, steel.youngModule, steel.poissonRatio);
+
+% Извлекаем численные результаты вдоль выбранной линии
+sigma_r_std   = stress_std(1, midNodes);   % σ_rr
+sigma_theta_std = stress_std(3, midNodes); % σ_θθ
+sigma_r_mom   = stress_mom(1, midNodes);
+sigma_theta_mom = stress_mom(3, midNodes);
+
+u_r_std = U_std(1, midNodes);   % перемещения по r
+u_r_mom = U_mom(1, midNodes);
+
+% --- Построение графиков ---
+figure('Name', 'Напряжения: CAX4 vs CAX4M vs Аналитика');
+subplot(2,2,1);
+plot(r_vals, sigma_r_an, 'k-', 'LineWidth', 2); hold on;
+plot(r_vals, sigma_r_std, 'ro--', 'MarkerSize', 4);
+plot(r_vals, sigma_r_mom, 'bs--', 'MarkerSize', 4);
+xlabel('Радиус r'); ylabel('\sigma_{rr} (МПа)');
+legend('Аналит.', 'CAX4', 'CAX4M', 'Location', 'best');
+title('Радиальное напряжение');
+
+subplot(2,2,2);
+plot(r_vals, sigma_theta_an, 'k-', 'LineWidth', 2); hold on;
+plot(r_vals, sigma_theta_std, 'ro--', 'MarkerSize', 4);
+plot(r_vals, sigma_theta_mom, 'bs--', 'MarkerSize', 4);
+xlabel('Радиус r'); ylabel('\sigma_{\theta\theta} (МПа)');
+legend('Аналит.', 'CAX4', 'CAX4M', 'Location', 'best');
+title('Окружное напряжение');
+
+subplot(2,2,3);
+plot(r_vals, u_r_an, 'k-', 'LineWidth', 2); hold on;
+plot(r_vals, u_r_std, 'ro--', 'MarkerSize', 4);
+plot(r_vals, u_r_mom, 'bs--', 'MarkerSize', 4);
+xlabel('Радиус r'); ylabel('u_r (см)');
+legend('Аналит.', 'CAX4', 'CAX4M', 'Location', 'best');
+title('Радиальное перемещение');
+
+% Визуализация эквивалентных напряжений на сетке
+subplot(2,2,4);
 vis = Visualizer(grid);
-xlim([a,b]);
-vis.showDisplacements(U_vis);
-% Напряжения через Assembler
-stress = 1e5 * asm.nodalStress(reshape(U,2,[]));
+vis.showField(fe_standard.vonMises(stress_std));
+title('Эквивалентные напряжения по Мизесу (CAX4)');
+colorbar;
 
-vis.showField(problem.vonMises(stress));
-
-% Выделим узлы на средней высоте (z = h/2)
-mid_nodes = find(abs(grid.nodes(2,:) - h/2) < 1e-8);
-r_mid = grid.nodes(1, mid_nodes);
-sigma_rr_num = stress(1, mid_nodes);
-sigma_tt_num = stress(3, mid_nodes);
-
-% sigma_rr(a) = 0, u_r(b) = 0
-coeff = [1, -a^(-2);1/(mat.firstLame + mat.secondLame), 1/(mat.secondLame*b^2)] \ [-p;0];
-# A = -p * a^2 / (b^2 - a^2);
-# B = -p * a^2 * b^2 / (b^2 - a^2);
-sigma_rr_an = 1e5 * (coeff(1) - coeff(2) ./ r_mid.^2);
-sigma_tt_an = 1e5 * (coeff(1) + coeff(2) ./ r_mid.^2);
-#
-# % Визуализация
-figure;
-plot(r_mid, sigma_rr_an, 'b-', 'LineWidth', 2); hold on;
-plot(r_mid, sigma_rr_num, 'bo', 'MarkerSize', 8);
-plot(r_mid, sigma_tt_an, 'r-', 'LineWidth', 2);
-plot(r_mid, sigma_tt_num, 'rs', 'MarkerSize', 8);
-xlabel('r, см'); ylabel('\sigma, МПа');
-legend('\sigma_{rr} аналит.', '\sigma_{rr} числ.', ...
-       '\sigma_{\theta\theta} аналит.', '\sigma_{\theta\theta} числ.');
-title('Верификация осесимметричного элемента CAX4');
 end
 
-function grid = makeGrid(nr,nz,a,b,h)
-% Сетка: равномерная по r и z
-    r_nodes = linspace(a, b, nr+1);
-    z_nodes = linspace(0, h, nz+1);
+% -------------------------------------------------------------------------
+% Генерация сетки в координатах (r, z)
+% -------------------------------------------------------------------------
+function grid = createAxisymmetricGrid(rInner, rOuter, L, nR, nZ)
+    % Количество узлов по направлениям
+    numNodesR = nR + 1;
+    numNodesZ = nZ + 1;
+    numNodes = numNodesR * numNodesZ;
+    numElements = nR * nZ;
 
-    % Создание массива узлов: первая строка – r, вторая – z, третья – 0
-    [RR, ZZ] = meshgrid(r_nodes, z_nodes);
-    nodes = [RR(:)'; ZZ(:)'; zeros(1, numel(RR))];
+    % Векторы координат
+    rVec = linspace(rInner, rOuter, numNodesR);
+    zVec = linspace(0, L, numNodesZ);
 
-    % Нумерация узлов: по столбцам meshgrid (z – строки, r – столбцы)
-    % Это соответствует [z, r] индексам.
-
-    % Формирование четырёхугольных элементов
-    quads = zeros(4, nr*nz);
-    idx = 1;
-    for i = 1:nr
-        for j = 1:nz
-            % Узлы углов элемента: (i,j) – нижний левый в пространстве (r,z)
-            n1 = i*(nz+1) + j;              % правый нижний
-            n2 = i*(nz+1) + j + 1;          % правый верхний
-            n3 = (i-1)*(nz+1) + j + 1;      % левый верхний
-            n4 = (i-1)*(nz+1) + j;          % левый нижний
-            quads(:, idx) = [n1; n2; n3; n4];
-            idx = idx + 1;
+    % Создание узлов (3xN, третья координата = 0)
+    nodes = zeros(3, numNodes);
+    nodeIdx = 0;
+    for iz = 1:numNodesZ
+        z = zVec(iz);
+        for ir = 1:numNodesR
+            r = rVec(ir);
+            nodeIdx = nodeIdx + 1;
+            nodes(:, nodeIdx) = [r; z; 0];
         end
     end
 
-    % Создание объекта сетки Grid2D
+    % Функция для получения индекса узла по (ir, iz)
+    nodeAt = @(ir, iz) (iz - 1) * numNodesR + ir;
+
+    % Создание четырёхугольных элементов
+    quads = zeros(4, numElements, 'int32');
+    elemIdx = 0;
+    for iz = 1:nZ
+        for ir = 1:nR
+            n1 = nodeAt(ir,   iz);
+            n2 = nodeAt(ir+1, iz);
+            n3 = nodeAt(ir+1, iz+1);
+            n4 = nodeAt(ir,   iz+1);
+            elemIdx = elemIdx + 1;
+            quads(:, elemIdx) = [n1; n2; n3; n4];
+        end
+    end
+
     grid = Grid2D();
-    grid.name = 'cylinder';
+    grid.name = sprintf('Lame_cylinder_r%g-%g_L%g', rInner, rOuter, L);
     grid.nodes = nodes;
     grid.quads = quads;
 end
@@ -137,4 +187,125 @@ for e = 1:grid.numElements()
     force(dof_r1) = force(dof_r1) + f/2;
     force(dof_r2) = force(dof_r2) + f/2;
 end
+end
+% -------------------------------------------------------------------------
+% Граничные условия (плоская деформация: u_z = 0 на z=0 и z=L)
+% -------------------------------------------------------------------------
+function bc = boundaryConditionsAxisymmetric(grid)
+    tol = 1e-8;
+    % Узлы на нижней и верхней границах
+    bottomZ = abs(grid.nodes(2,:)) < tol;
+    topZ    = abs(grid.nodes(2,:) - max(grid.nodes(2,:))) < tol;
+    
+    % Закрепляем осевые перемещения (степени свободы с номерами 2, 4, 6, ...)
+    bc = [find(bottomZ)*2, find(topZ)*2];
+    
+    % Если внутренний радиус равен нулю, закрепляем u_r на оси r=0
+    if min(grid.nodes(1,:)) < tol
+        onAxis = abs(grid.nodes(1,:)) < tol;
+        bc = [bc, find(onAxis)*2 - 1];   % степени свободы u_r (нечётные)
+    end
+end
+
+% -------------------------------------------------------------------------
+% Нагрузка от давления на внутреннюю и внешнюю цилиндрические поверхности
+% -------------------------------------------------------------------------
+function force = pressureLoadAxisymmetric(grid, rInner, rOuter, pInner, pOuter)
+    tol = 1e-6;
+    force = zeros(size(grid.nodes));   % 3xN_nodes, третья компонента не используется
+    
+    % Внутренняя поверхность (r = rInner)
+    innerNodes = find(abs(grid.nodes(1,:) - rInner) < tol);
+    for i = 1:length(innerNodes)
+        n = innerNodes(i);
+        r = grid.nodes(1, n);
+        z = grid.nodes(2, n);
+        
+        % Находим соседние узлы для вычисления длины дуги в плоскости r-z
+        % Для регулярной сетки можно оценить вклад от прилегающих элементов
+        % Упрощённо: сила = давление * площадь, отнесённая к узлу
+        % Площадь цилиндрической поверхности, приходящаяся на узел:
+        %   dA = 2*pi*r * dz, где dz - размер элемента по высоте в окрестности узла
+        % Определим dz как расстояние до соседа по z (если есть)
+        dz = 0;
+        neighbors = [n-1, n+1];
+        for nb = neighbors
+            if nb > 0 && nb <= size(grid.nodes,2) && abs(grid.nodes(2,nb) - z) > tol
+                dz = dz + abs(grid.nodes(2,nb) - z);
+            end
+        end
+        if dz == 0
+            % крайний случай (узел на углу) – берём половину расстояния до единственного соседа
+            if n > 1, dz = abs(grid.nodes(2,n-1) - z); end
+        end
+        dA = 2 * pi * r * dz;
+        % Радиальная сила (положительное давление pInner создаёт силу +r)
+        force(1, n) = force(1, n) + pInner * dA;
+    end
+    
+    % Внешняя поверхность (r = rOuter)
+    outerNodes = find(abs(grid.nodes(1,:) - rOuter) < tol);
+    for i = 1:length(outerNodes)
+        n = outerNodes(i);
+        r = grid.nodes(1, n);
+        z = grid.nodes(2, n);
+        dz = 0;
+        neighbors = [n-1, n+1];
+        for nb = neighbors
+            if nb > 0 && nb <= size(grid.nodes,2) && abs(grid.nodes(2,nb) - z) > tol
+                dz = dz + abs(grid.nodes(2,nb) - z);
+            end
+        end
+        if dz == 0 && n > 1
+            dz = abs(grid.nodes(2,n-1) - z);
+        end
+        dA = 2 * pi * r * dz;
+        % Внешнее давление действует внутрь (противоположно +r)
+        force(1, n) = force(1, n) - pOuter * dA;
+    end
+    
+    % Приводим к вектору-столбцу для решателя
+    force = force(1:2, :);   % только u_r и u_z
+end
+
+% -------------------------------------------------------------------------
+% Решение осесимметричной задачи
+% -------------------------------------------------------------------------
+function [U, stress] = solveAxisymmetric(grid, bc, force, fe)
+    % Сборка глобальной матрицы жёсткости
+    K = assemble(fe, grid);
+    
+    % Статический решатель
+    solver = Static(bc, K);
+    solver.step(force);
+    
+    % Перемещения
+    U = solver.U;
+    U = reshape(U, 2, []);   % 2 x N_nodes: первая строка u_r, вторая u_z
+    
+    % Напряжения
+    [~, stress] = fe.evaluateStrainAndStress(grid, U);
+    % stress: 4 строки (σ_rr, σ_zz, σ_θθ, τ_rz)
+end
+
+% -------------------------------------------------------------------------
+% Аналитическое решение задачи Ламе для плоской деформации
+% -------------------------------------------------------------------------
+function [sigma_r, sigma_theta, u_r] = lame_analytical(r, a, b, p_i, p_o, E, nu)
+    % r - массив радиальных координат
+    % a, b - внутренний и внешний радиусы
+    % p_i, p_o - внутреннее и внешнее давление
+    % E, nu - модуль Юнга и коэффициент Пуассона
+    
+    % Константы
+    C1 = (p_i * a^2 - p_o * b^2) / (b^2 - a^2);
+    C2 = (p_i - p_o) * a^2 * b^2 / (b^2 - a^2);
+    
+    sigma_r = C1 - C2 ./ r.^2;
+    sigma_theta = C1 + C2 ./ r.^2;
+    
+    % Перемещение (плоская деформация)
+    % u_r = 1/(2*mu) * ( (1-2*nu)*C1*r + C2/r )
+    mu = E / (2*(1+nu));
+    u_r = 1/(2*mu) * ( (1-2*nu)*C1.*r + C2./r );
 end

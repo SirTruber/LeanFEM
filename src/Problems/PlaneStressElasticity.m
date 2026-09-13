@@ -4,15 +4,15 @@ classdef PlaneStressElasticity < PlaneStrainElasticity
     end
 
     methods
-        function obj = PlaneStressElasticity(element, material, thickness)
-            obj = obj@PlaneStrainElasticity(element, material);
+        function obj = PlaneStressElasticity(element, thickness)
+            obj = obj@PlaneStrainElasticity(element);
             if nargin > 2, obj.thickness = thickness; end
         end
 
-        function D = elasticityMatrix(obj)
+        function D = elasticityMatrix(obj, material)
             % Эффективные модули для плоского напряжения
-            E = obj.material.youngModule;
-            nu = obj.material.poissonRatio;
+            E = material.youngModule;
+            nu = material.poissonRatio;
             Eef = E / (1 - nu^2);
             nuef = nu / (1 - nu);
 

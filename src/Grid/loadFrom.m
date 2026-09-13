@@ -31,6 +31,7 @@ function grid = loadRomanov(filename)
         grid.hexas(1:8,i) = hex(1,2:end);
     end
     fclose(fileID);
+    grid.materialID = ones(grid.numElements(),1,'int32');
     grid.generateQuads();
 end
 
@@ -51,5 +52,6 @@ function grid = load4ekm(filename)
         grid.hexas(1:8,i) = sscanf(fgetl(fileID),'%d')';
     end
     fclose(fileID);
+    grid.materialID = ones(grid.numElements(),1,'int32');
     grid.generateQuads();
 end
