@@ -5,12 +5,12 @@ classdef AxisymmetricElasticity < AbstractProblem
         strainSize = 4    % εrr, εzz, εθθ, γrz
     end
     methods
-        function obj = AxisymmetricElasticity(element, material)
-            obj = obj@AbstractProblem(element, material);
+        function obj = AxisymmetricElasticity(element)
+            obj = obj@AbstractProblem(element);
         end
-        function D = elasticityMatrix(obj)
-            lambda = obj.material.firstLame;
-            mu = obj.material.secondLame;
+        function D = elasticityMatrix(obj,material)
+            lambda = material.firstLame;
+            mu = material.secondLame;
             D = blkdiag(...
                 lambda*ones(3) + 2*mu*eye(3), ...
                 mu);

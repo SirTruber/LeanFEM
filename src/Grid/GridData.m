@@ -2,8 +2,9 @@ classdef GridData < handle
     properties
         name    % Уникальный идентификатор (строка)
         nodes   % Координаты узлов сетки [3xM]
+        materialID % Ссылка на материал для каждого элемента
     end
-    methods (Abstract)
+    methods 
          function e = elements(obj,ind) end % Возвращает номера узлов элемента ind
          function m = numElements(obj) end % Возвращает число элементов
          function p = points(obj,ind) end % Возвращает координаты узлов элемента ind
@@ -12,6 +13,18 @@ classdef GridData < handle
     methods
         function n = numNodes(obj) % Возвращает число узлов
             n = size(obj.nodes,2);
+        end
+
+        function setMaterial(obj, matID, elemIndices)
+            if isempty(elemIndices)
+                elemIndices = 1:obj.numElements();
+            end
+            elemIndices = elemIndices(:);
+            obj.materialID(elemIndices) = matID;
+        end
+
+        function matID = getMaterial(obj, elemIndex)
+            matID = obj.materialID(elemIndex);
         end
 
         function [Pmin,Pmax] = bbox(obj) % Возвращает минимальную и максимальную координаты ограничивающего куба для быстрого определения положения и размера объекта

@@ -34,5 +34,17 @@ classdef C2D4 < AbstractElement
                 -(1 - y), -(1 - x)
             ];
         end
+
+        function Ke = computeStiffness(obj, problem, nodeCoords, material)
+            integrand = @(xi, grad, detJ, N) ...
+                obj.stiffnessIntegrand(problem, grad, N, nodeCoords, material);
+            Ke = obj.integrate(nodeCoords, integrand);
+        end
+        
+        function val = stiffnessIntegrand(obj, problem, grad, N, nodeCoords, material)
+            B = problem.strainDisplacementMatrix(grad, N, nodeCoords);
+            D = problem.elasticityMatrix(material);
+            val = B' * D * B;
+        end
     end
 end

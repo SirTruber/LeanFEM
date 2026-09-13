@@ -8,8 +8,10 @@ classdef UniformNodeMapping
             dofPerElem = dofPerNode * numNodesPerElem;
             totalDOF = dofPerNode * numNodes;
 
-            ij = dofPerNode * repelem(elements, dofPerNode, 1) - ...
-                 repmat(int32(dofPerNode-1:-1:0)', numNodesPerElem, numElements);
+            ofset = dofPerNode-1:-1:0;
+            ij = double(dofPerNode * repelem(elements, dofPerNode, 1)) - ...
+                 repmat(ofset', numNodesPerElem, numElements);
+
             [i,j] = ndgrid(1:dofPerElem, 1:dofPerElem);
             i_glob = ij(i(:), :);
             j_glob = ij(j(:), :);

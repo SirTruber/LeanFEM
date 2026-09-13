@@ -30,7 +30,9 @@ classdef Newmark < handle
             obj.dt = dt;
             obj.assembler = assembler;
             obj.K = assembler.stiffness();
-            obj.M = assembler.mass();
+            M_full = assembler.mass();
+            diag_M = sum(M_full,2); % Lumped Mass
+            obj.M = spdiags(diag_M, 0, size(M_full,1), size(M_full,2));
         end
 
         function applyBC(obj, dofIndices, dofValues)
@@ -53,6 +55,7 @@ classdef Newmark < handle
         end
 
         function applyIC(obj, U0, V0, F0)
+            U0 = U0(:); V0 = V0(:); F0 = F0(:);
             U0(obj.dofIndices) = obj.dofValues;
             V0(obj.dofIndices) = 0;
 

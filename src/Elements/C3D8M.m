@@ -11,8 +11,26 @@ classdef C3D8M < C3D8
             if nargin == 1
                 obj.param = param;
             end
+       end
+
+        function Ke = computeStiffness(obj, problem, nodeCoords, material)
+            xi = obj.quadrature.points(:, 1);
+            w  = obj.quadrature.weights(1);
+            [grad, detJ] = obj.computeGradient(xi, nodeCoords);
+            N = obj.shapeFunction(xi);
+
+            B = problem.strainDisplacementMatrix(grad, N, nodeCoords);
+            D = problem.elasticityMatrix(material);
+            Klin = B' * D * B;
+
+            gamma = obj.getHourglass(nodeCoords);
+            mu = material.secondLame;
+            dof = problem.dofPerNode;
+            Kstab = mu * obj.param * kron(gamma' * gamma, eye(dof));
+            Ke = (Klin + Kstab) * detJ * w;
         end
-      function gamma = getHourglass(obj, nodeCoords)
+        
+        function gamma = getHourglass(obj, nodeCoords)
             H = [ones(obj.numNodes,1), nodeCoords'];
             Q = orth(H);
             v = [ 1 -1  1 -1  1 -1  1 -1;

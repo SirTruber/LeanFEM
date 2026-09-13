@@ -9,8 +9,6 @@ classdef Cross < handle
         dt          % Временной шаг             (Число)
         % Матрицы системы
         M           % Матрица масс              (sparse)
-        K           % Матрица жесткости         (sparse)
-        Keff        % Эффективная матрица жесткости (sparse)
         % Результат счёта
         U           % Узловые перемещения       [Nx1]
         V           % Узловые скорости          [Nx1]
@@ -20,8 +18,9 @@ classdef Cross < handle
         function obj = Cross(dt, assembler)
             obj.dt = dt;
             obj.assembler = assembler;
-            obj.K = assembler.stiffness();
-            obj.M = assembler.mass();
+            M_full = assembler.mass();
+            diag_M = sum(M_full,2); % Lumped Mass 
+            obj.M = spdiags(diag_M, 0, size(M_full,1), size(M_full,2));
         end
 
         function applyBC(obj, dofIndices, dofValues)
@@ -32,18 +31,22 @@ classdef Cross < handle
             else
                 obj.dofValues = dofValues(:);
             end
-
-            obj.Keff = obj.K;
-            obj.Keff(obj.dofIndices,:) = 0;
-            obj.Keff(:,obj.dofIndices) = 0;
-            obj.Keff(sub2ind(size(obj.K),obj.dofIndices,obj.dofIndices)) = 1;
         end
 
         function applyIC(obj, U0, V0, F0)
+            U0 = U0(:);
+            V0 = V0(:);
+            F0 = F0(:);
+            
             U0(obj.dofIndices) = obj.dofValues;
             V0(obj.dofIndices) = 0;
 
-            A0 = obj.M \ (F0(:) - obj.K * U0);
+            stress_IP = obj.assembler.integrationPointStress(reshape(U0,obj.assembler.problem.dofPerNode,[]));
+            F_int = obj.assembler.internalForce(stress_IP);
+
+            F_int = F_int(:);
+            A0 = obj.M \ (F0(:) - F_int);
+
             A0(obj.dofIndices) = 0;
 
             obj.U = U0;
@@ -51,16 +54,18 @@ classdef Cross < handle
             obj.A = A0;
 
             %Первый шаг
-            obj.V = obj.V + 0.5 * dt * obj.A;
-            obj.U = obj.U + dt * obj.V;
+            obj.V = obj.V + 0.5 * obj.dt * obj.A;
+            obj.U = obj.U + obj.dt * obj.V;
         end
 
         function step(obj,force)
-            F = force(:) - obj.Keff * obj.U; % Эффективная правая часть
-            F = F - obj.K(:,obj.dofIndices) * obj.dofValues; % Корректируем правую часть с учётом граничных условий
-            F(obj.dofIndices) = obj.dofValues; % Применяем граничные условия первого рода
+            stress_IP = obj.assembler.integrationPointStress(reshape(obj.U,obj.assembler.problem.dofPerNode,[]));
+            F_int = obj.assembler.internalForce(stress_IP);
+
+            F = force(:) - F_int(:); % Эффективная правая часть
 
             obj.A = obj.M\F;
+
             obj.V = obj.V + obj.dt * obj.A;
             obj.U = obj.U + obj.dt * obj.V;
 

@@ -1,16 +1,16 @@
 classdef PlaneStrainElasticity < AbstractProblem
     properties
         physicalDim = 2 % x, y
-        dofPerNode = 2
+        dofPerNode = 2  % u, v
         strainSize = 3  % %εxx, εyy, γxy
     end
     methods
-        function obj = PlaneStrainElasticity(element, material)
-            obj = obj@AbstractProblem(element, material);
+        function obj = PlaneStrainElasticity(element)
+            obj = obj@AbstractProblem(element);
         end
-        function D = elasticityMatrix(obj)
-            lambda = obj.material.firstLame;
-            mu = obj.material.secondLame;
+        function D = elasticityMatrix(obj, material)
+            lambda = material.firstLame;
+            mu = material.secondLame;
             D = blkdiag(...
                 lambda*ones(2) + 2*mu*eye(2), ...
                 mu);
