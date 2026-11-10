@@ -53,7 +53,7 @@ classdef (Abstract) AbstractElement < handle
             val = B' * D * B;
         end
         function Me = computeMass(obj, problem, nodeCoords, material)
-            integrand = @(xi, grad, detJ, N) material.density * kron(N * N',eye(problem.physicalDim ));
+            integrand = @(xi, grad, detJ, N) material.density * kron(N * N',eye(problem.dofPerNode ));
             Me = obj.integrate(nodeCoords, integrand);
         end
     end

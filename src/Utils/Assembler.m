@@ -156,18 +156,19 @@ classdef Assembler < handle
         % Вход: U – глобальный вектор перемещений (dofPerNode x numNodes)
         % Выход: stress_IP – [strainSize x nQuad x numElements]
     
-            numElems = obj.mesh.numElements();
-            nQuad = obj.problem.element.quadrature.nPoints;
-            stress_IP = zeros(obj.problem.strainSize, nQuad, numElems);
+            nE = obj.mesh.numElements();
+            nQ = obj.problem.element.quadrature.nPoints;
+            sV = obj.problem.strainSize;
+            stress_IP = zeros(sV, nQ, nE);
     
-            for e = 1:numElems
+            for e = 1:nE
                 nodes = obj.mesh.elements(e);
                 nodeCoords = obj.mesh.points(e);
                 Ue = U(:, nodes);
 
                 material = obj.materials{obj.mesh.materialID(e)};
         
-                for ip = 1:nQuad
+                for ip = 1:nQ
                     xi = obj.problem.element.quadrature.points(:, ip);
                     [grad, ~] = obj.problem.element.computeGradient(xi, nodeCoords);
                     N = obj.problem.element.shapeFunction(xi);

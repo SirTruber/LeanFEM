@@ -6,22 +6,25 @@ classdef PlaneStressElasticity < PlaneStrainElasticity
     methods
         function obj = PlaneStressElasticity(element, thickness)
             obj = obj@PlaneStrainElasticity(element);
-            if nargin > 2, obj.thickness = thickness; end
+            if nargin > 1, obj.thickness = thickness; end
         end
 
-        function D = elasticityMatrix(obj, material)
-            % Эффективные модули для плоского напряжения
-            E = material.youngModule;
-            nu = material.poissonRatio;
-            Eef = E / (1 - nu^2);
-            nuef = nu / (1 - nu);
+        function D = reduceTangent(obj, D3d)
+            % Plane stress: stress_zz = stress_yz = stress_xz = 0
+            % Делаем ортогональное отображение на плоскость
+            in_plane     = [1, 2, 4];   % xx, yy, xy
+            out_of_plane = [3, 5, 6];   % zz, yz, xz
 
-            lambda = Eef * nuef / ((1 + nuef)*(1 - 2*nuef));
-            mu = obj.material.secondLame;
+            D_pp = D3d(in_plane, in_plane);
+            D_po = D3d(in_plane, out_of_plane);
+            D_op = D3d(out_of_plane, in_plane);
+            D_oo = D3d(out_of_plane, out_of_plane);
 
-            D = blkdiag(...
-                lambda*ones(2) + 2*mu*eye(2), ...
-                mu);
+            D = D_pp - D_po * (D_oo \ D_op);
+        end
+
+        function sv = reduceStress(obj, sv3d)
+            sv = sv3d([1, 2, 4]);
         end
 
         function factor = volumeFactor(obj, ~)

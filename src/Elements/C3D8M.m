@@ -14,20 +14,15 @@ classdef C3D8M < C3D8
        end
 
         function Ke = computeStiffness(obj, problem, nodeCoords, material)
-            xi = obj.quadrature.points(:, 1);
-            w  = obj.quadrature.weights(1);
-            [grad, detJ] = obj.computeGradient(xi, nodeCoords);
-            N = obj.shapeFunction(xi);
-
-            B = problem.strainDisplacementMatrix(grad, N, nodeCoords);
-            D = problem.elasticityMatrix(material);
-            Klin = B' * D * B;
-
             gamma = obj.getHourglass(nodeCoords);
             mu = material.secondLame;
             dof = problem.dofPerNode;
-            Kstab = mu * obj.param * kron(gamma' * gamma, eye(dof));
-            Ke = (Klin + Kstab) * detJ * w;
+
+            integrand = @(xi, grad, detJ, N) ...
+                obj.stiffnessIntegrand(problem, grad, N, nodeCoords, material)... % Обычный интегрант 
+                + mu * obj.param * kron(gamma' * gamma, eye(dof));                % Для стабилизации
+            
+            Ke = obj.integrate(nodeCoords, integrand);
         end
         
         function gamma = getHourglass(obj, nodeCoords)

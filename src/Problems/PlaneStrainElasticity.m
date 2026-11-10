@@ -8,12 +8,15 @@ classdef PlaneStrainElasticity < AbstractProblem
         function obj = PlaneStrainElasticity(element)
             obj = obj@AbstractProblem(element);
         end
-        function D = elasticityMatrix(obj, material)
-            lambda = material.firstLame;
-            mu = material.secondLame;
-            D = blkdiag(...
-                lambda*ones(2) + 2*mu*eye(2), ...
-                mu);
+
+        function D = reduceTangent(obj, D3d)
+        % Voigt: [xx, yy, zz, xy, yz, xz] → [xx, yy, xy]
+            idx = [1, 2, 4];
+            D = D3d(idx, idx);
+        end
+
+        function sv = reduceStress(obj, sv3d)
+            sv = sv3d([1, 2, 4]);
         end
 
         function B = strainDisplacementMatrix(obj, grad, ~, ~)

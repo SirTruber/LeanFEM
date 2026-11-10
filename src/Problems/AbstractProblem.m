@@ -8,9 +8,6 @@ classdef (Abstract) AbstractProblem < handle
         element         % объект класса AbstractElement
     end
     methods
-        % Возвращает матрицу упругости D [strainSize x strainSize]
-        function D = elasticityMatrix(obj, material) end
-
         % Возвращает матрицу B [strainSize x (dofPerNode*numNodes)]
         function B = strainDisplacementMatrix(obj, grad, N, nodeCoords) end
 
@@ -22,6 +19,18 @@ classdef (Abstract) AbstractProblem < handle
     methods
         function obj = AbstractProblem(element)
             obj.element = element;
+        end
+
+        function D = elasticityMatrix(obj, material) 
+            D = obj.reduceTangent(material.elasticityMatrix());
+        end
+
+        function D = reduceTangent(obj, D3d)
+            D = D3d;
+        end
+
+        function sv = reduceStress(obj, sv3d)
+            sv = sv3d;
         end
 
         function Ke = stiffness(obj, nodeCoords, material)
@@ -38,14 +47,6 @@ classdef (Abstract) AbstractProblem < handle
         function Ke = geometricStiffness(obj, nodeCoords, stress)
             % sigma = [strainSize x quadrature.nPoints]
             Ke = 0;
-            % if ismethod(obj.element, 'getHourglass')
-            %
-            %     gamma = obj.element.getHourglass(nodeCoords);
-            %     param = obj.element.param;
-            %     % volumeStress = obj.vonMises(stress);
-            %     volumeStress = sum(stress(1:3));
-            %     Ke = 0.5 * volumeStress * param * kron(gamma'*gamma, eye(obj.dofPerNode));
-            % end
             quadrature = obj.element.quadrature;
             for ip = 1:quadrature.nPoints
                 xi = quadrature.points(:, ip);
@@ -54,14 +55,13 @@ classdef (Abstract) AbstractProblem < handle
                 [grad, detJ] = obj.element.computeGradient(xi, nodeCoords);
                 N = obj.element.shapeFunction(xi);
                 G = obj.gradientDisplacementMatrix(grad,N,nodeCoords);
-                s = reshape(stress([1,4,5,4,2,6,5,6,3],ip),3,3); % Тензор второго ранга
-
-                sigma0 = kron(s,eye(3));
-                T = zeros(9);
-                T(1,1) = 1; T(2,4) = 1; T(3,7) = 1; T(4,2) = 1; T(5,5) = 1; T(6,8) = 1; T(7,3) = 1; T(8,6) = 1; T(9,9) = 1;
-                Sigma = sigma0 * (T - eye(9));
-                Sigma = 0.5 * (Sigma + Sigma');
-                Ke = Ke + 0.5 * G' * Sigma * G * detJ * w;
+                
+                sv = stress(:,ip);
+                s = [sv(1) sv(4) sv(6)
+                     sv(4) sv(2) sv(5)
+                     sv(6) sv(5) sv(3)];
+                Sigma = kron(eye(3), s);
+                Ke = Ke + G' * Sigma * G * detJ * w;
             % end
             end
         end

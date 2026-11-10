@@ -8,13 +8,19 @@ classdef AxisymmetricElasticity < AbstractProblem
         function obj = AxisymmetricElasticity(element)
             obj = obj@AbstractProblem(element);
         end
-        function D = elasticityMatrix(obj,material)
-            lambda = material.firstLame;
-            mu = material.secondLame;
-            D = blkdiag(...
-                lambda*ones(3) + 2*mu*eye(3), ...
-                mu);
+
+        function D = reduceTangent(obj, D3d)
+            % 3D [xx, yy, zz, xy, yz, xz]
+            % 2X [rr, zz, θθ, rz]
+            % Соответствие: rr↔xx, zz↔zz, θθ↔yy, rz↔xz
+            idx = [1, 3, 2, 6];
+            D = D3d(idx, idx);
         end
+
+        function sv = reduceStress(obj, sv3d)
+            sv = sv3d([1, 3, 2, 6]);
+        end
+
         function B = strainDisplacementMatrix(obj, grad, N, nodeCoords)
             numNodes = obj.element.numNodes;
             p = obj.dofPerNode;

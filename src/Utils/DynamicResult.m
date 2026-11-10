@@ -7,7 +7,7 @@ classdef DynamicResult < handle
     end
     methods
         function result = DynamicResult(asm,t,U)
-            result.displacement = reshape(U,3,asm.mesh.numNodes(),numel(t));%struct('ux',U(1:3:end,:),'uy',U(2:3:end,:),'uz',U(3:3:end,:));
+            result.displacement = reshape(U,asm.problem.dofPerNode,asm.mesh.numNodes(),numel(t));
             result.timeHistory = t;
             result.asm = asm;
         end

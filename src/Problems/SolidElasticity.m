@@ -9,14 +9,6 @@ classdef SolidElasticity < AbstractProblem
             obj = obj@AbstractProblem(element);
         end
 
-        function D = elasticityMatrix(obj, material)
-            lambda = material.firstLame;
-            mu = material.secondLame;
-            D = blkdiag(...
-                lambda*ones(3) + 2*mu*eye(3), ...
-                mu*eye(3));
-        end
-
         function B = strainDisplacementMatrix(obj, grad, ~, ~)
             numNodes = obj.element.numNodes;
             p = obj.dofPerNode;

@@ -47,14 +47,14 @@ function grid = generateCylinder(r_inner, r_outer, H, Nr, Ntheta, Nz)      %r_in
                 j_next = 1;
             end
             for i = 1:Nr
-                n1 = getNode(i,   j,      k);
-                n2 = getNode(i+1, j,      k);
-                n3 = getNode(i+1, j_next, k);
-                n4 = getNode(i,   j_next, k);
-                n5 = getNode(i,   j,      k+1);
-                n6 = getNode(i+1, j,      k+1);
+                n1 = getNode(i+1, j,      k);
+                n2 = getNode(i+1, j_next, k);
+                n3 = getNode(i,   j_next, k);
+                n4 = getNode(i,   j,      k);
+                n5 = getNode(i+1, j,      k+1);
+                n6 = getNode(i+1, j_next, k+1);
                 n7 = getNode(i+1, j_next, k+1);
-                n8 = getNode(i,   j_next, k+1);
+                n8 = getNode(i,   j,      k+1);
 
                 hexas(:, elemIdx) = [n1; n2; n3; n4; n5; n6; n7; n8];
                 elemIdx = elemIdx + 1;

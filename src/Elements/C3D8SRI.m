@@ -13,6 +13,7 @@ classdef C3D8SRI < C3D8
             volIndices = [1;2;3];
             
             D = problem.elasticityMatrix(material);
+
             lambda = material.firstLame;
             mu = material.secondLame;
             K = lambda + 2/3*mu; % модуль объёмного сжатия
